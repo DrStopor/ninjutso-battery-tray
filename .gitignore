@@ -1,0 +1,11 @@
+/target/
+
+# Local MCP/tool logs and transient settings.
+/.setting/
+
+# Local editor/OS files.
+/.vscode/
+/.idea/
+*.swp
+Thumbs.db
+Desktop.ini
