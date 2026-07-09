@@ -3,6 +3,6 @@ name = "ninjutso-battery-tray"
 version = "0.1.0"
 edition = "2024"
 license-file = "LICENSE"
-repository = "https://gitflic.ru/project/drstopor/ninjutso-battery-tray"
+repository = "https://github.com/DrStopor/ninjutso-battery-tray"
 
 [dependencies]
