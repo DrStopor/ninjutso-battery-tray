@@ -1,4 +1,5 @@
 /target/
+/dist/
 
 # Local MCP/tool logs and transient settings.
 /.setting/
