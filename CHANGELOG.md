@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+## 0.2.0 - 2026-07-17
+
+### Added
+
+- Battery reading while Ninjutso Ten is connected and charging over USB (`PID_E020`).
+- Russian, English, Belarusian, Kazakh, and Simplified Chinese (`zh-CN`) interface languages.
+- A multilingual installer wizard in the same five languages, with Windows UI language detection and an explicit language picker.
+- A language submenu with persisted selection and Windows UI language detection on first launch.
+- Connection source (`USB` or receiver) in the popup and tray tooltip.
+- Localized README files and matching flyout screenshots for every interface language.
+
+### Changed
+
+- Redesigned the status popup with clearer hierarchy, compact battery visualization, rounded corners, and multi-monitor-aware placement.
+- Added double-buffered popup rendering and stopped unnecessary popup redraws during tray charging animation.
+- Rebuilt the status flyout as a smaller, quieter card with improved typography, spacing, connection badge, rounded battery bar, and light-dismiss behavior.
+- Refresh battery and connection data before opening the flyout and once per second while it remains visible, so USB, receiver, and disconnected transitions appear without reopening it.
+- Added single-instance protection with a localized message when the utility is already running.
+- Split HID access, localization, and persisted settings into dedicated modules.
+- Reworked the tray icon: numeric mode now uses stable, high-contrast digits on a quiet surface, while graphical mode uses a simpler mouse silhouette.
+- Clarified at the top of the license text that the MIT terms apply only together with the Commons Clause and are not the MIT License alone.
+- Made release packaging produce clean GitHub assets and GitFlic-compatible zip wrappers in one run.
+
 ## 0.1.0 - 2026-07-09
 
 Initial public release.

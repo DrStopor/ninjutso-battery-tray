@@ -64,10 +64,12 @@ $SetupExe = Join-Path $DistDir "NinjutsoBatteryTraySetup-$Version.exe"
 $PortableDir = Join-Path $DistDir "ninjutso-battery-tray-$Version-portable"
 $PortableZip = Join-Path $DistDir "ninjutso-battery-tray-$Version-portable.zip"
 $Checksums = Join-Path $DistDir 'SHA256SUMS.txt'
+$GitFlicInstallerZip = Join-Path $DistDir "NinjutsoBatteryTraySetup-$Version.zip"
+$GitFlicChecksumsZip = Join-Path $DistDir "SHA256SUMS-$Version.zip"
 
 Push-Location $RepoRoot
 try {
-    New-Item -ItemType Directory -Path $DistDir -Force | Out-Null
+    Reset-Directory -Path $DistDir
 
     cargo build --release
     & $InnoCompiler "/DMyAppVersion=$Version" $InstallerScript
@@ -105,10 +107,15 @@ License:
     }
     $hashLines | Set-Content -LiteralPath $Checksums -Encoding ASCII
 
+    Compress-Archive -LiteralPath $SetupExe -DestinationPath $GitFlicInstallerZip -Force
+    Compress-Archive -LiteralPath $Checksums -DestinationPath $GitFlicChecksumsZip -Force
+
     Write-Host "Release artifacts:"
     Write-Host "  $SetupExe"
     Write-Host "  $PortableZip"
     Write-Host "  $Checksums"
+    Write-Host "  $GitFlicInstallerZip"
+    Write-Host "  $GitFlicChecksumsZip"
 } finally {
     Pop-Location
 }

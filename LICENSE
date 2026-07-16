@@ -6,7 +6,12 @@ Licensor: drstopor
 Canonical project URL: https://github.com/DrStopor/ninjutso-battery-tray
 Mirror URL: https://gitflic.ru/project/drstopor/ninjutso-battery-tray
 
-# MIT License
+NOTICE: This software is not licensed under the MIT License alone. The MIT
+terms below apply only together with the Commons Clause License Condition v1.0
+included in this file. In particular, the License does not grant the right to
+Sell the Software as that term is defined by the Commons Clause.
+
+# Base license: MIT License (subject to the Commons Clause below)
 
 Copyright (c) 2026 drstopor
 Canonical project URL: https://github.com/DrStopor/ninjutso-battery-tray

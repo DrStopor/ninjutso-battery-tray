@@ -1,17 +1,20 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::env;
 use std::ffi::{OsStr, c_void};
-use std::fs;
 use std::io;
 use std::iter::once;
 use std::mem::{size_of, zeroed};
 use std::os::windows::ffi::OsStrExt;
-use std::path::PathBuf;
 use std::ptr::{null, null_mut};
 use std::sync::{Mutex, OnceLock};
-use std::thread;
-use std::time::Duration;
+
+mod hid;
+mod i18n;
+mod settings;
+
+use hid::{ConnectionKind, MouseBattery, ReadError, ReadErrorKind, read_mouse_battery};
+use i18n::Language;
+use settings::Settings;
 
 type Bool = i32;
 type Dword = u32;
@@ -30,58 +33,61 @@ type Hdc = isize;
 type Hbrush = isize;
 type Hcursor = isize;
 type Hfont = isize;
+type Hmonitor = isize;
+type Hrgn = isize;
 
-const APP_NAME: &str = "Заряд мыши Ninjutso";
-const DEVICE_FILTER: &str = "vid_093a&pid_eb01";
+const APP_NAME: &str = "Ninjutso Battery Tray";
+const SINGLE_INSTANCE_MUTEX_NAME: &str = "Local\\NinjutsoBatteryTray.Singleton.v1";
 const REFRESH_TIMER_ID: usize = 1;
 const CHARGE_ANIMATION_TIMER_ID: usize = 2;
-const POPUP_HIDE_TIMER_ID: usize = 3;
+const POPUP_LIVE_REFRESH_TIMER_ID: usize = 3;
 const REFRESH_INTERVAL_MS: u32 = 60_000;
 const CHARGE_ANIMATION_INTERVAL_MS: u32 = 650;
-const POPUP_HIDE_MS: u32 = 6_000;
+const POPUP_LIVE_REFRESH_INTERVAL_MS: u32 = 1_000;
+const TRAY_DEACTIVATION_GRACE_MS: u32 = 250;
+const POPUP_WIDTH: i32 = 292;
+const POPUP_HEIGHT: i32 = 140;
+const POPUP_CORNER_RADIUS: i32 = 20;
 const TRAY_UID: u32 = 1;
 const TRAY_CALLBACK: u32 = WM_APP + 1;
 const MENU_REFRESH: u32 = 1001;
 const MENU_TOGGLE_PERCENT: u32 = 1002;
 const MENU_EXIT: u32 = 1003;
-
-const INVALID_HANDLE_VALUE: Handle = -1isize;
-const ERROR_NO_MORE_ITEMS: u32 = 259;
-
-const DIGCF_PRESENT: u32 = 0x0000_0002;
-const DIGCF_DEVICEINTERFACE: u32 = 0x0000_0010;
-const GENERIC_READ: u32 = 0x8000_0000;
-const GENERIC_WRITE: u32 = 0x4000_0000;
-const FILE_SHARE_READ: u32 = 0x0000_0001;
-const FILE_SHARE_WRITE: u32 = 0x0000_0002;
-const OPEN_EXISTING: u32 = 3;
-const FILE_ATTRIBUTE_NORMAL: u32 = 0x0000_0080;
+const MENU_LANGUAGE_FIRST: u32 = 1100;
 
 const WM_DESTROY: u32 = 0x0002;
+const WM_ACTIVATE: u32 = 0x0006;
 const WM_PAINT: u32 = 0x000F;
 const WM_ERASEBKGND: u32 = 0x0014;
+const WM_KEYDOWN: u32 = 0x0100;
 const WM_TIMER: u32 = 0x0113;
 const WM_LBUTTONDOWN: u32 = 0x0201;
 const WM_LBUTTONUP: u32 = 0x0202;
 const WM_RBUTTONUP: u32 = 0x0205;
 const WM_LBUTTONDBLCLK: u32 = 0x0203;
 const WM_APP: u32 = 0x8000;
+const WA_INACTIVE: usize = 0;
+const VK_ESCAPE: usize = 0x1b;
 
 const WS_POPUP: u32 = 0x8000_0000;
 const WS_EX_TOPMOST: u32 = 0x0000_0008;
 const WS_EX_TOOLWINDOW: u32 = 0x0000_0080;
-const WS_EX_NOACTIVATE: u32 = 0x0800_0000;
+const CS_DROPSHADOW: u32 = 0x0002_0000;
 const HWND_TOPMOST: Hwnd = -1isize;
 const SW_HIDE: i32 = 0;
-const SWP_NOACTIVATE: u32 = 0x0010;
 const SWP_SHOWWINDOW: u32 = 0x0040;
+const MONITOR_DEFAULTTONEAREST: u32 = 0x0000_0002;
 
-const DT_CENTER: u32 = 0x0000_0001;
+const DT_LEFT: u32 = 0x0000_0000;
 const DT_VCENTER: u32 = 0x0000_0004;
+const DT_WORDBREAK: u32 = 0x0000_0010;
 const DT_SINGLELINE: u32 = 0x0000_0020;
+const DT_CALCRECT: u32 = 0x0000_0400;
+const DT_END_ELLIPSIS: u32 = 0x0000_8000;
 const TRANSPARENT: i32 = 1;
 const FW_NORMAL: i32 = 400;
 const FW_BOLD: i32 = 700;
+const CLEARTYPE_QUALITY: u32 = 5;
 
 const NIM_ADD: u32 = 0x0000_0000;
 const NIM_MODIFY: u32 = 0x0000_0001;
@@ -92,15 +98,21 @@ const NIF_TIP: u32 = 0x0000_0004;
 
 const MF_STRING: u32 = 0x0000_0000;
 const MF_CHECKED: u32 = 0x0000_0008;
+const MF_POPUP: u32 = 0x0000_0010;
+const MF_RADIOCHECK: u32 = 0x0000_0200;
 const MF_SEPARATOR: u32 = 0x0000_0800;
 const TPM_RIGHTBUTTON: u32 = 0x0000_0002;
 const TPM_RETURNCMD: u32 = 0x0000_0100;
 
 const MB_OK: u32 = 0x0000_0000;
 const MB_ICONERROR: u32 = 0x0000_0010;
+const MB_ICONINFORMATION: u32 = 0x0000_0040;
+
+const ERROR_ALREADY_EXISTS: u32 = 183;
 
 const BI_RGB: u32 = 0;
 const DIB_RGB_COLORS: u32 = 0;
+const SRCCOPY: u32 = 0x00cc_0020;
 const ICON_SIZE: i32 = 32;
 
 static APP_STATE: OnceLock<Mutex<AppState>> = OnceLock::new();
@@ -115,14 +127,7 @@ struct Guid {
 }
 
 #[repr(C)]
-struct SpDeviceInterfaceData {
-    cb_size: u32,
-    interface_class_guid: Guid,
-    flags: u32,
-    reserved: usize,
-}
-
-#[repr(C)]
+#[derive(Clone, Copy)]
 struct Point {
     x: i32,
     y: i32,
@@ -146,6 +151,14 @@ impl Rect {
             bottom,
         }
     }
+}
+
+#[repr(C)]
+struct MonitorInfo {
+    cb_size: u32,
+    monitor: Rect,
+    work: Rect,
+    flags: u32,
 }
 
 #[repr(C)]
@@ -240,52 +253,12 @@ struct IconInfo {
     color: Hbitmap,
 }
 
-#[link(name = "hid")]
-unsafe extern "system" {
-    fn HidD_GetHidGuid(hid_guid: *mut Guid);
-    fn HidD_SetFeature(device: Handle, report_buffer: *mut u8, report_buffer_length: u32) -> Bool;
-    fn HidD_GetFeature(device: Handle, report_buffer: *mut u8, report_buffer_length: u32) -> Bool;
-}
-
-#[link(name = "setupapi")]
-unsafe extern "system" {
-    fn SetupDiGetClassDevsW(
-        class_guid: *const Guid,
-        enumerator: *const u16,
-        hwnd_parent: Hwnd,
-        flags: Dword,
-    ) -> Handle;
-    fn SetupDiEnumDeviceInterfaces(
-        device_info_set: Handle,
-        device_info_data: *mut c_void,
-        interface_class_guid: *const Guid,
-        member_index: Dword,
-        device_interface_data: *mut SpDeviceInterfaceData,
-    ) -> Bool;
-    fn SetupDiGetDeviceInterfaceDetailW(
-        device_info_set: Handle,
-        device_interface_data: *mut SpDeviceInterfaceData,
-        device_interface_detail_data: *mut c_void,
-        device_interface_detail_data_size: Dword,
-        required_size: *mut Dword,
-        device_info_data: *mut c_void,
-    ) -> Bool;
-    fn SetupDiDestroyDeviceInfoList(device_info_set: Handle) -> Bool;
-}
-
 #[link(name = "kernel32")]
 unsafe extern "system" {
-    fn GetLastError() -> Dword;
     fn GetModuleHandleW(module_name: *const u16) -> Hinstance;
-    fn CreateFileW(
-        file_name: *const u16,
-        desired_access: Dword,
-        share_mode: Dword,
-        security_attributes: *mut c_void,
-        creation_disposition: Dword,
-        flags_and_attributes: Dword,
-        template_file: Handle,
-    ) -> Handle;
+    fn CreateMutexW(mutex_attributes: *mut c_void, initial_owner: Bool, name: *const u16)
+    -> Handle;
+    fn GetLastError() -> Dword;
     fn CloseHandle(object: Handle) -> Bool;
 }
 
@@ -329,8 +302,10 @@ unsafe extern "system" {
         cy: i32,
         flags: Uint,
     ) -> Bool;
+    fn IsWindowVisible(hwnd: Hwnd) -> Bool;
     fn InvalidateRect(hwnd: Hwnd, rect: *const Rect, erase: Bool) -> Bool;
     fn UpdateWindow(hwnd: Hwnd) -> Bool;
+    fn SetFocus(hwnd: Hwnd) -> Hwnd;
     fn BeginPaint(hwnd: Hwnd, paint: *mut PaintStruct) -> Hdc;
     fn EndPaint(hwnd: Hwnd, paint: *const PaintStruct) -> Bool;
     fn CreatePopupMenu() -> Hmenu;
@@ -346,7 +321,11 @@ unsafe extern "system" {
     ) -> Uint;
     fn DestroyMenu(menu: Hmenu) -> Bool;
     fn SetForegroundWindow(hwnd: Hwnd) -> Bool;
+    fn GetMessageTime() -> i32;
     fn GetCursorPos(point: *mut Point) -> Bool;
+    fn MonitorFromPoint(point: Point, flags: Dword) -> Hmonitor;
+    fn GetMonitorInfoW(monitor: Hmonitor, info: *mut MonitorInfo) -> Bool;
+    fn SetWindowRgn(hwnd: Hwnd, region: Hrgn, redraw: Bool) -> i32;
     fn CreateIconIndirect(icon_info: *mut IconInfo) -> Hicon;
     fn DestroyIcon(icon: Hicon) -> Bool;
     fn FillRect(dc: Hdc, rect: *const Rect, brush: Hbrush) -> i32;
@@ -372,6 +351,29 @@ unsafe extern "system" {
         bits: *const c_void,
     ) -> Hbitmap;
     fn CreateSolidBrush(color: Dword) -> Hbrush;
+    fn CreateCompatibleDC(dc: Hdc) -> Hdc;
+    fn CreateCompatibleBitmap(dc: Hdc, width: i32, height: i32) -> Hbitmap;
+    fn BitBlt(
+        destination: Hdc,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+        source: Hdc,
+        source_x: i32,
+        source_y: i32,
+        raster_operation: Dword,
+    ) -> Bool;
+    fn DeleteDC(dc: Hdc) -> Bool;
+    fn CreateRoundRectRgn(
+        left: i32,
+        top: i32,
+        right: i32,
+        bottom: i32,
+        ellipse_width: i32,
+        ellipse_height: i32,
+    ) -> Hrgn;
+    fn FillRgn(dc: Hdc, region: Hrgn, brush: Hbrush) -> Bool;
     fn CreateFontW(
         height: i32,
         width: i32,
@@ -394,18 +396,11 @@ unsafe extern "system" {
     fn DeleteObject(object: Hgdiobj) -> Bool;
 }
 
-#[derive(Clone, Copy)]
-struct MouseBattery {
-    percent: u8,
-    online: bool,
-    charging: bool,
-}
-
 #[derive(Clone)]
 enum TrayStatus {
     Reading,
     Ready(MouseBattery),
-    Unavailable(String),
+    Unavailable(ReadError),
 }
 
 struct AppState {
@@ -414,29 +409,41 @@ struct AppState {
     icon: Hicon,
     status: TrayStatus,
     show_percent_on_icon: bool,
+    language: Language,
     animation_phase: u8,
+    tray_click_popup_was_visible: Option<bool>,
+    last_popup_deactivation_tick: u32,
 }
 
-struct Settings {
-    show_percent_on_icon: bool,
-}
+struct SingleInstanceGuard(Handle);
 
-struct OwnedHandle(Handle);
+impl SingleInstanceGuard {
+    fn acquire() -> Result<Option<Self>, String> {
+        Self::acquire_named(SINGLE_INSTANCE_MUTEX_NAME)
+    }
 
-impl OwnedHandle {
-    fn new(handle: Handle) -> Result<Self, String> {
-        if handle == INVALID_HANDLE_VALUE || handle == 0 {
-            Err(format!(
-                "CreateFileW failed: {}",
+    fn acquire_named(name: &str) -> Result<Option<Self>, String> {
+        let name = wide_null(name);
+        let handle = unsafe { CreateMutexW(null_mut(), 0, name.as_ptr()) };
+        if handle == 0 {
+            return Err(format!(
+                "CreateMutexW failed: {}",
                 io::Error::last_os_error()
-            ))
+            ));
+        }
+
+        if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+            unsafe {
+                CloseHandle(handle);
+            }
+            Ok(None)
         } else {
-            Ok(Self(handle))
+            Ok(Some(Self(handle)))
         }
     }
 }
 
-impl Drop for OwnedHandle {
+impl Drop for SingleInstanceGuard {
     fn drop(&mut self) {
         unsafe {
             CloseHandle(self.0);
@@ -444,12 +451,41 @@ impl Drop for OwnedHandle {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct Rgba {
     r: u8,
     g: u8,
     b: u8,
     a: u8,
+}
+
+#[derive(Clone, Copy)]
+struct BatteryIconStyle {
+    fill: Rgba,
+    empty: Rgba,
+    outline: Rgba,
+    border: Rgba,
+    charging: bool,
+    animation_phase: u8,
+}
+
+#[derive(Clone, Copy)]
+struct PopupTextStyle {
+    face: &'static str,
+    height: i32,
+    weight: i32,
+    color: Dword,
+    flags: u32,
+}
+
+struct PopupView {
+    percent: u8,
+    percent_text: String,
+    primary: &'static str,
+    secondary: &'static str,
+    connection: &'static str,
+    accent: Dword,
+    show_bar: bool,
 }
 
 impl Rgba {
@@ -468,9 +504,11 @@ impl Rgba {
 }
 
 fn main() {
-    if std::env::args().any(|arg| arg == "--once") {
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|arg| arg == "--once") {
+        let language = settings::load().language;
         match read_mouse_battery() {
-            Ok(status) => println!("{}", status_text(&TrayStatus::Ready(status))),
+            Ok(status) => println!("{}", status_text(&TrayStatus::Ready(status), language)),
             Err(err) => {
                 eprintln!("{err}");
                 std::process::exit(1);
@@ -479,18 +517,43 @@ fn main() {
         return;
     }
 
-    if let Err(err) = run_tray() {
+    let preview = cfg!(debug_assertions) && args.iter().any(|arg| arg == "--preview");
+    let preview_language = if cfg!(debug_assertions) {
+        args.iter()
+            .find_map(|arg| arg.strip_prefix("--preview-language="))
+            .and_then(Language::from_code)
+    } else {
+        None
+    };
+
+    let _single_instance_guard = if preview {
+        None
+    } else {
+        match SingleInstanceGuard::acquire() {
+            Ok(Some(guard)) => Some(guard),
+            Ok(None) => {
+                show_information(settings::load().language.strings().already_running);
+                return;
+            }
+            Err(err) => {
+                show_error(&err);
+                return;
+            }
+        }
+    };
+
+    if let Err(err) = run_tray(preview, preview_language) {
         show_error(&err);
     }
 }
 
-fn run_tray() -> Result<(), String> {
+fn run_tray(preview: bool, preview_language: Option<Language>) -> Result<(), String> {
     let class_name = wide_null("NinjutsoMouseBatteryTrayWindow");
     let window_name = wide_null(APP_NAME);
     let instance = unsafe { GetModuleHandleW(null()) };
 
     let wnd_class = WndClassW {
-        style: 0,
+        style: CS_DROPSHADOW,
         lpfn_wnd_proc: Some(window_proc),
         cb_cls_extra: 0,
         cb_wnd_extra: 0,
@@ -534,7 +597,10 @@ fn run_tray() -> Result<(), String> {
         ));
     }
 
-    let settings = load_settings();
+    let mut settings = settings::load();
+    if let Some(language) = preview_language {
+        settings.language = language;
+    }
     let initial_icon = create_battery_icon(&TrayStatus::Reading, settings.show_percent_on_icon, 0)?;
     APP_STATE
         .set(Mutex::new(AppState {
@@ -543,12 +609,18 @@ fn run_tray() -> Result<(), String> {
             icon: initial_icon,
             status: TrayStatus::Reading,
             show_percent_on_icon: settings.show_percent_on_icon,
+            language: settings.language,
             animation_phase: 0,
+            tray_click_popup_was_visible: None,
+            last_popup_deactivation_tick: 0,
         }))
         .map_err(|_| "Application state is already initialized".to_string())?;
 
     add_or_update_tray_icon(NIM_ADD)?;
     refresh_tray();
+    if preview {
+        show_status_popup(hwnd);
+    }
 
     let timer = unsafe { SetTimer(hwnd, REFRESH_TIMER_ID, REFRESH_INTERVAL_MS, null_mut()) };
     if timer == 0 {
@@ -596,8 +668,11 @@ unsafe extern "system" fn window_proc(
             tick_charge_animation();
             0
         }
-        WM_TIMER if w_param == POPUP_HIDE_TIMER_ID => {
-            hide_status_popup();
+        WM_TIMER if w_param == POPUP_LIVE_REFRESH_TIMER_ID => {
+            match popup_live_refresh_action(is_status_popup_visible()) {
+                PopupLiveRefreshAction::Refresh => refresh_tray(),
+                PopupLiveRefreshAction::Stop => stop_popup_live_refresh(),
+            }
             0
         }
         WM_PAINT if is_status_popup(hwnd) => {
@@ -605,17 +680,26 @@ unsafe extern "system" fn window_proc(
             0
         }
         WM_ERASEBKGND if is_status_popup(hwnd) => 1,
-        WM_LBUTTONDOWN if is_status_popup(hwnd) => {
+        WM_ACTIVATE if is_status_popup(hwnd) && (w_param & 0xffff) == WA_INACTIVE => {
+            remember_popup_deactivation();
+            hide_status_popup();
+            0
+        }
+        WM_KEYDOWN if is_status_popup(hwnd) && w_param == VK_ESCAPE => {
             hide_status_popup();
             0
         }
         TRAY_CALLBACK => {
             let event = l_param as u32;
             if event == WM_RBUTTONUP {
+                hide_status_popup();
                 show_context_menu(hwnd);
+            } else if event == WM_LBUTTONDOWN {
+                remember_tray_left_button_down();
             } else if event == WM_LBUTTONUP {
-                show_status_popup(hwnd);
+                finish_tray_left_click(hwnd);
             } else if event == WM_LBUTTONDBLCLK {
+                remember_tray_left_button_down();
                 refresh_tray();
             }
             0
@@ -635,13 +719,23 @@ unsafe extern "system" fn window_proc(
 fn show_context_menu(hwnd: Hwnd) {
     unsafe {
         let menu = CreatePopupMenu();
-        if menu == 0 {
+        let language_menu = CreatePopupMenu();
+        if menu == 0 || language_menu == 0 {
+            if menu != 0 {
+                DestroyMenu(menu);
+            }
+            if language_menu != 0 {
+                DestroyMenu(language_menu);
+            }
             return;
         }
 
-        let refresh = wide_null("Обновить");
-        let toggle_percent = wide_null("Показать процент");
-        let exit = wide_null("Выход");
+        let language = current_language();
+        let strings = language.strings();
+        let refresh = wide_null(strings.refresh);
+        let toggle_percent = wide_null(strings.show_percent);
+        let language_label = wide_null(strings.language);
+        let exit = wide_null(strings.exit);
         let toggle_flags = if current_show_percent_on_icon() {
             MF_STRING | MF_CHECKED
         } else {
@@ -654,6 +748,26 @@ fn show_context_menu(hwnd: Hwnd) {
             toggle_flags,
             MENU_TOGGLE_PERCENT as usize,
             toggle_percent.as_ptr(),
+        );
+        for (index, item_language) in Language::ALL.into_iter().enumerate() {
+            let label = wide_null(item_language.autonym());
+            let flags = if item_language == language {
+                MF_STRING | MF_CHECKED | MF_RADIOCHECK
+            } else {
+                MF_STRING | MF_RADIOCHECK
+            };
+            AppendMenuW(
+                language_menu,
+                flags,
+                (MENU_LANGUAGE_FIRST + index as u32) as usize,
+                label.as_ptr(),
+            );
+        }
+        AppendMenuW(
+            menu,
+            MF_POPUP,
+            language_menu as usize,
+            language_label.as_ptr(),
         );
         AppendMenuW(menu, MF_SEPARATOR, 0, null());
         AppendMenuW(menu, MF_STRING, MENU_EXIT as usize, exit.as_ptr());
@@ -674,6 +788,8 @@ fn show_context_menu(hwnd: Hwnd) {
                 refresh_tray();
             } else if command == MENU_TOGGLE_PERCENT {
                 toggle_percent_on_icon();
+            } else if let Some(language) = language_from_menu_command(command) {
+                set_language(language);
             } else if command == MENU_EXIT {
                 DestroyWindow(hwnd);
             }
@@ -683,6 +799,11 @@ fn show_context_menu(hwnd: Hwnd) {
     }
 }
 
+fn language_from_menu_command(command: u32) -> Option<Language> {
+    let index = command.checked_sub(MENU_LANGUAGE_FIRST)? as usize;
+    Language::ALL.get(index).copied()
+}
+
 fn is_status_popup(hwnd: Hwnd) -> bool {
     hwnd != 0
         && APP_STATE
@@ -690,6 +811,95 @@ fn is_status_popup(hwnd: Hwnd) -> bool {
             .and_then(|state_lock| state_lock.lock().ok())
             .map(|state| state.popup_hwnd == hwnd)
             .unwrap_or(false)
+}
+
+fn is_status_popup_visible() -> bool {
+    let popup_hwnd = APP_STATE
+        .get()
+        .and_then(|state_lock| state_lock.lock().ok())
+        .map(|state| state.popup_hwnd)
+        .unwrap_or(0);
+
+    popup_hwnd != 0 && unsafe { IsWindowVisible(popup_hwnd) } != 0
+}
+
+fn remember_popup_deactivation() {
+    let tick = unsafe { GetMessageTime() } as u32;
+    if let Some(state_lock) = APP_STATE.get()
+        && let Ok(mut state) = state_lock.lock()
+    {
+        state.last_popup_deactivation_tick = tick;
+    }
+}
+
+fn remember_tray_left_button_down() {
+    let popup_visible = is_status_popup_visible();
+    let message_tick = unsafe { GetMessageTime() } as u32;
+
+    if let Some(state_lock) = APP_STATE.get()
+        && let Ok(mut state) = state_lock.lock()
+    {
+        state.tray_click_popup_was_visible = Some(popup_was_visible_for_tray_click(
+            popup_visible,
+            state.last_popup_deactivation_tick,
+            message_tick,
+        ));
+        state.last_popup_deactivation_tick = 0;
+    }
+}
+
+fn popup_was_visible_for_tray_click(
+    popup_visible: bool,
+    last_deactivation_tick: u32,
+    message_tick: u32,
+) -> bool {
+    popup_visible
+        || (last_deactivation_tick != 0
+            && message_tick.wrapping_sub(last_deactivation_tick) <= TRAY_DEACTIVATION_GRACE_MS)
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum TrayLeftClickAction {
+    Hide,
+    RefreshAndShow,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum PopupLiveRefreshAction {
+    Refresh,
+    Stop,
+}
+
+fn popup_live_refresh_action(popup_visible: bool) -> PopupLiveRefreshAction {
+    if popup_visible {
+        PopupLiveRefreshAction::Refresh
+    } else {
+        PopupLiveRefreshAction::Stop
+    }
+}
+
+fn tray_left_click_action(popup_was_visible: bool) -> TrayLeftClickAction {
+    if popup_was_visible {
+        TrayLeftClickAction::Hide
+    } else {
+        TrayLeftClickAction::RefreshAndShow
+    }
+}
+
+fn finish_tray_left_click(owner_hwnd: Hwnd) {
+    let popup_was_visible = APP_STATE
+        .get()
+        .and_then(|state_lock| state_lock.lock().ok())
+        .and_then(|mut state| state.tray_click_popup_was_visible.take())
+        .unwrap_or_else(is_status_popup_visible);
+
+    match tray_left_click_action(popup_was_visible) {
+        TrayLeftClickAction::Hide => hide_status_popup(),
+        TrayLeftClickAction::RefreshAndShow => {
+            refresh_tray();
+            show_status_popup(owner_hwnd);
+        }
+    }
 }
 
 fn show_status_popup(owner_hwnd: Hwnd) {
@@ -703,10 +913,7 @@ fn show_status_popup(owner_hwnd: Hwnd) {
         GetCursorPos(&mut point);
     }
 
-    let width = 280;
-    let height = 150;
-    let x = (point.x - width + 24).max(8);
-    let y = (point.y - height - 18).max(8);
+    let (x, y) = popup_position(point);
 
     unsafe {
         InvalidateRect(popup_hwnd, null(), 0);
@@ -715,13 +922,54 @@ fn show_status_popup(owner_hwnd: Hwnd) {
             HWND_TOPMOST,
             x,
             y,
-            width,
-            height,
-            SWP_NOACTIVATE | SWP_SHOWWINDOW,
+            POPUP_WIDTH,
+            POPUP_HEIGHT,
+            SWP_SHOWWINDOW,
         );
         UpdateWindow(popup_hwnd);
-        SetTimer(owner_hwnd, POPUP_HIDE_TIMER_ID, POPUP_HIDE_MS, null_mut());
+        SetForegroundWindow(popup_hwnd);
+        SetFocus(popup_hwnd);
     }
+    start_popup_live_refresh(owner_hwnd);
+}
+
+fn popup_position(point: Point) -> (i32, i32) {
+    let monitor = unsafe { MonitorFromPoint(point, MONITOR_DEFAULTTONEAREST) };
+    let mut info = MonitorInfo {
+        cb_size: size_of::<MonitorInfo>() as u32,
+        monitor: Rect::new(0, 0, 0, 0),
+        work: Rect::new(0, 0, 0, 0),
+        flags: 0,
+    };
+    if monitor == 0 || unsafe { GetMonitorInfoW(monitor, &mut info) } == 0 {
+        return (
+            (point.x - POPUP_WIDTH + 24).max(8),
+            (point.y - POPUP_HEIGHT - 18).max(8),
+        );
+    }
+
+    let margin = 8;
+    let work = info.work;
+    let mut x = point.x - POPUP_WIDTH + 24;
+    let mut y = point.y - POPUP_HEIGHT - 18;
+
+    if point.y >= work.bottom {
+        y = work.bottom - POPUP_HEIGHT - margin;
+    } else if point.y < work.top {
+        y = work.top + margin;
+    } else if point.x >= work.right {
+        x = work.right - POPUP_WIDTH - margin;
+        y = point.y - POPUP_HEIGHT + 24;
+    } else if point.x < work.left {
+        x = work.left + margin;
+        y = point.y - POPUP_HEIGHT + 24;
+    }
+
+    let min_x = work.left + margin;
+    let max_x = (work.right - POPUP_WIDTH - margin).max(min_x);
+    let min_y = work.top + margin;
+    let max_y = (work.bottom - POPUP_HEIGHT - margin).max(min_y);
+    (x.clamp(min_x, max_x), y.clamp(min_y, max_y))
 }
 
 fn ensure_status_popup(owner_hwnd: Hwnd) -> Hwnd {
@@ -729,10 +977,9 @@ fn ensure_status_popup(owner_hwnd: Hwnd) -> Hwnd {
         .get()
         .and_then(|state_lock| state_lock.lock().ok())
         .map(|state| state.popup_hwnd)
+        && existing != 0
     {
-        if existing != 0 {
-            return existing;
-        }
+        return existing;
     }
 
     let class_name = wide_null("NinjutsoMouseBatteryTrayWindow");
@@ -740,14 +987,14 @@ fn ensure_status_popup(owner_hwnd: Hwnd) -> Hwnd {
     let instance = unsafe { GetModuleHandleW(null()) };
     let popup_hwnd = unsafe {
         CreateWindowExW(
-            WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_NOACTIVATE,
+            WS_EX_TOOLWINDOW | WS_EX_TOPMOST,
             class_name.as_ptr(),
             window_name.as_ptr(),
             WS_POPUP,
             0,
             0,
-            280,
-            150,
+            POPUP_WIDTH,
+            POPUP_HEIGHT,
             owner_hwnd,
             0,
             instance,
@@ -756,10 +1003,25 @@ fn ensure_status_popup(owner_hwnd: Hwnd) -> Hwnd {
     };
 
     if popup_hwnd != 0 {
-        if let Some(state_lock) = APP_STATE.get() {
-            if let Ok(mut state) = state_lock.lock() {
-                state.popup_hwnd = popup_hwnd;
+        let region = unsafe {
+            CreateRoundRectRgn(
+                0,
+                0,
+                POPUP_WIDTH + 1,
+                POPUP_HEIGHT + 1,
+                POPUP_CORNER_RADIUS,
+                POPUP_CORNER_RADIUS,
+            )
+        };
+        if region != 0 && unsafe { SetWindowRgn(popup_hwnd, region, 1) } == 0 {
+            unsafe {
+                DeleteObject(region as Hgdiobj);
             }
+        }
+        if let Some(state_lock) = APP_STATE.get()
+            && let Ok(mut state) = state_lock.lock()
+        {
+            state.popup_hwnd = popup_hwnd;
         }
     }
 
@@ -767,7 +1029,7 @@ fn ensure_status_popup(owner_hwnd: Hwnd) -> Hwnd {
 }
 
 fn hide_status_popup() {
-    let Some((main_hwnd, popup_hwnd)) = APP_STATE
+    let Some((owner_hwnd, popup_hwnd)) = APP_STATE
         .get()
         .and_then(|state_lock| state_lock.lock().ok())
         .map(|state| (state.hwnd, state.popup_hwnd))
@@ -775,10 +1037,40 @@ fn hide_status_popup() {
         return;
     };
 
+    stop_popup_live_refresh_for(owner_hwnd);
     unsafe {
-        KillTimer(main_hwnd, POPUP_HIDE_TIMER_ID);
         if popup_hwnd != 0 {
             ShowWindow(popup_hwnd, SW_HIDE);
+        }
+    }
+}
+
+fn start_popup_live_refresh(owner_hwnd: Hwnd) {
+    if owner_hwnd != 0 {
+        unsafe {
+            SetTimer(
+                owner_hwnd,
+                POPUP_LIVE_REFRESH_TIMER_ID,
+                POPUP_LIVE_REFRESH_INTERVAL_MS,
+                null_mut(),
+            );
+        }
+    }
+}
+
+fn stop_popup_live_refresh() {
+    let owner_hwnd = APP_STATE
+        .get()
+        .and_then(|state_lock| state_lock.lock().ok())
+        .map(|state| state.hwnd)
+        .unwrap_or(0);
+    stop_popup_live_refresh_for(owner_hwnd);
+}
+
+fn stop_popup_live_refresh_for(owner_hwnd: Hwnd) {
+    if owner_hwnd != 0 {
+        unsafe {
+            KillTimer(owner_hwnd, POPUP_LIVE_REFRESH_TIMER_ID);
         }
     }
 }
@@ -798,11 +1090,11 @@ fn invalidate_status_popup() {
 }
 
 fn paint_status_popup(hwnd: Hwnd) {
-    let status = APP_STATE
+    let (status, language) = APP_STATE
         .get()
         .and_then(|state_lock| state_lock.lock().ok())
-        .map(|state| state.status.clone())
-        .unwrap_or(TrayStatus::Reading);
+        .map(|state| (state.status.clone(), state.language))
+        .unwrap_or((TrayStatus::Reading, Language::English));
 
     let mut paint: PaintStruct = unsafe { zeroed() };
     let hdc = unsafe { BeginPaint(hwnd, &mut paint) };
@@ -810,120 +1102,243 @@ fn paint_status_popup(hwnd: Hwnd) {
         return;
     }
 
-    draw_status_popup(hdc, &status);
+    let buffer_dc = unsafe { CreateCompatibleDC(hdc) };
+    let buffer_bitmap = if buffer_dc != 0 {
+        unsafe { CreateCompatibleBitmap(hdc, POPUP_WIDTH, POPUP_HEIGHT) }
+    } else {
+        0
+    };
+
+    if buffer_dc != 0 && buffer_bitmap != 0 {
+        let old_bitmap = unsafe { SelectObject(buffer_dc, buffer_bitmap as Hgdiobj) };
+        draw_status_popup(buffer_dc, &status, language);
+        unsafe {
+            BitBlt(
+                hdc,
+                0,
+                0,
+                POPUP_WIDTH,
+                POPUP_HEIGHT,
+                buffer_dc,
+                0,
+                0,
+                SRCCOPY,
+            );
+            SelectObject(buffer_dc, old_bitmap);
+            DeleteObject(buffer_bitmap as Hgdiobj);
+            DeleteDC(buffer_dc);
+        }
+    } else {
+        if buffer_bitmap != 0 {
+            unsafe {
+                DeleteObject(buffer_bitmap as Hgdiobj);
+            }
+        }
+        if buffer_dc != 0 {
+            unsafe {
+                DeleteDC(buffer_dc);
+            }
+        }
+        draw_status_popup(hdc, &status, language);
+    }
 
     unsafe {
         EndPaint(hwnd, &paint);
     }
 }
 
-fn draw_status_popup(hdc: Hdc, status: &TrayStatus) {
-    let background = rgb(22, 25, 29);
-    let panel = rgb(34, 39, 45);
-    let text = rgb(245, 247, 250);
-    let muted = rgb(170, 178, 188);
-
-    fill_dc_rect(hdc, Rect::new(0, 0, 280, 150), background);
-    fill_dc_rect(hdc, Rect::new(8, 8, 272, 142), panel);
-
-    draw_dc_text(
-        hdc,
-        "Мышь Ninjutso",
-        Rect::new(18, 12, 262, 34),
-        -18,
-        FW_BOLD,
-        text,
-        DT_CENTER | DT_VCENTER | DT_SINGLELINE,
-    );
-
-    let (percent, percent_text, status_text, fill_color) = match status {
-        TrayStatus::Ready(battery) => {
-            let fill = if battery.percent >= 50 {
-                rgb(35, 190, 85)
-            } else if battery.percent >= 20 {
-                rgb(238, 180, 38)
-            } else {
-                rgb(220, 55, 55)
-            };
-            let connection = if battery.online {
-                "подключена"
-            } else {
-                "не подключена"
-            };
-            let charge = if battery.charging {
-                "заряжается"
-            } else {
-                "не заряжается"
-            };
-            (
-                battery.percent.min(100),
-                format!("{}%", battery.percent.min(100)),
-                format!("{connection} · {charge}"),
-                fill,
-            )
-        }
-        TrayStatus::Reading => (
-            0,
-            "...".to_string(),
-            "чтение заряда".to_string(),
-            rgb(100, 145, 205),
-        ),
-        TrayStatus::Unavailable(err) => {
-            let short = err.lines().next().unwrap_or("не доступно");
-            (0, "--".to_string(), short.to_string(), rgb(120, 120, 120))
-        }
+fn draw_status_popup(hdc: Hdc, status: &TrayStatus, language: Language) {
+    let view = popup_view(status, language);
+    let background = rgb(16, 18, 22);
+    let border = rgb(47, 53, 62);
+    let text = rgb(247, 249, 252);
+    let muted = rgb(143, 153, 166);
+    let pill = rgb(28, 32, 38);
+    let connection_style = PopupTextStyle {
+        face: "Segoe UI Variable Text",
+        height: -12,
+        weight: FW_NORMAL,
+        color: muted,
+        flags: DT_LEFT | DT_VCENTER | DT_SINGLELINE,
+    };
+    let connection_pill_left = if view.connection.is_empty() {
+        276
+    } else {
+        let text_width = measure_dc_text_width(hdc, view.connection, connection_style);
+        276 - (text_width + 36).clamp(58, 122)
     };
 
-    draw_dc_text(
+    fill_dc_rect(hdc, Rect::new(0, 0, POPUP_WIDTH, POPUP_HEIGHT), border);
+    fill_dc_rect(
         hdc,
-        &percent_text,
-        Rect::new(18, 42, 138, 98),
-        -52,
-        FW_BOLD,
-        text,
-        DT_CENTER | DT_VCENTER | DT_SINGLELINE,
+        Rect::new(1, 1, POPUP_WIDTH - 1, POPUP_HEIGHT - 1),
+        background,
     );
-
-    draw_dc_text(
-        hdc,
-        &status_text,
-        Rect::new(144, 42, 260, 70),
-        -17,
-        FW_NORMAL,
-        muted,
-        DT_CENTER | DT_VCENTER | DT_SINGLELINE,
-    );
-
-    draw_popup_battery_bar(hdc, percent, fill_color);
+    fill_dc_rect(hdc, Rect::new(30, 1, POPUP_WIDTH - 30, 2), rgb(69, 76, 88));
 
     draw_dc_text(
         hdc,
-        "ЛКМ по окну скрывает его",
-        Rect::new(18, 120, 262, 138),
-        -13,
-        FW_NORMAL,
-        muted,
-        DT_CENTER | DT_VCENTER | DT_SINGLELINE,
+        "Ninjutso Ten",
+        Rect::new(16, 9, connection_pill_left - 8, 35),
+        PopupTextStyle {
+            face: "Segoe UI Variable Text",
+            height: -17,
+            weight: FW_BOLD,
+            color: text,
+            flags: DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS,
+        },
     );
-}
 
-fn draw_popup_battery_bar(hdc: Hdc, percent: u8, fill_color: Dword) {
-    let border = rgb(238, 242, 246);
-    let empty = rgb(20, 23, 27);
-    let shadow = rgb(0, 0, 0);
-
-    fill_dc_rect(hdc, Rect::new(146, 80, 254, 114), shadow);
-    fill_dc_rect(hdc, Rect::new(148, 78, 252, 112), border);
-    fill_dc_rect(hdc, Rect::new(153, 83, 247, 107), empty);
-    fill_dc_rect(hdc, Rect::new(252, 88, 262, 102), border);
-    fill_dc_rect(hdc, Rect::new(252, 92, 258, 98), empty);
-
-    let fill_width = ((94u16 * percent as u16 + 99) / 100) as i32;
-    if fill_width > 0 {
+    if !view.connection.is_empty() {
+        fill_dc_round_rect(hdc, Rect::new(connection_pill_left, 10, 276, 34), 14, pill);
         fill_dc_rect(
             hdc,
-            Rect::new(153, 83, 153 + fill_width.min(94), 107),
-            fill_color,
+            Rect::new(connection_pill_left + 11, 20, connection_pill_left + 15, 24),
+            view.accent,
+        );
+        draw_dc_text(
+            hdc,
+            view.connection,
+            Rect::new(connection_pill_left + 24, 10, 268, 34),
+            connection_style,
+        );
+    }
+
+    draw_dc_text(
+        hdc,
+        &view.percent_text,
+        Rect::new(16, 38, 136, 105),
+        PopupTextStyle {
+            face: "Segoe UI Variable Display",
+            height: -45,
+            weight: FW_BOLD,
+            color: text,
+            flags: DT_LEFT | DT_VCENTER | DT_SINGLELINE,
+        },
+    );
+
+    fill_dc_rect(hdc, Rect::new(145, 50, 148, 66), view.accent);
+    draw_dc_text(
+        hdc,
+        view.primary,
+        Rect::new(156, 42, 276, 72),
+        PopupTextStyle {
+            face: "Segoe UI Variable Text",
+            height: -16,
+            weight: FW_BOLD,
+            color: text,
+            flags: DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS,
+        },
+    );
+
+    draw_dc_text(
+        hdc,
+        view.secondary,
+        Rect::new(145, 72, 276, 108),
+        PopupTextStyle {
+            face: "Segoe UI Variable Text",
+            height: -12,
+            weight: FW_NORMAL,
+            color: muted,
+            flags: DT_LEFT | DT_WORDBREAK,
+        },
+    );
+
+    draw_popup_battery_bar(hdc, view.percent, view.accent, view.show_bar);
+}
+
+fn popup_view(status: &TrayStatus, language: Language) -> PopupView {
+    let strings = language.strings();
+
+    match status {
+        TrayStatus::Ready(battery) => {
+            let level_color = if battery.percent >= 50 {
+                rgb(82, 211, 132)
+            } else if battery.percent >= 20 {
+                rgb(246, 190, 72)
+            } else {
+                rgb(255, 91, 98)
+            };
+            let source = match battery.connection {
+                ConnectionKind::Wired => strings.wired,
+                ConnectionKind::Receiver => strings.receiver,
+            };
+            if battery.online {
+                let primary = if battery.charging {
+                    strings.charging
+                } else {
+                    strings.on_battery
+                };
+                PopupView {
+                    percent: battery.percent.min(100),
+                    percent_text: format!("{}%", battery.percent.min(100)),
+                    primary,
+                    secondary: strings.connected,
+                    connection: source,
+                    accent: if battery.charging {
+                        rgb(65, 225, 143)
+                    } else {
+                        level_color
+                    },
+                    show_bar: true,
+                }
+            } else {
+                PopupView {
+                    percent: 0,
+                    percent_text: "—".to_string(),
+                    primary: strings.disconnected,
+                    secondary: strings.device_not_found_help,
+                    connection: source,
+                    accent: rgb(112, 123, 137),
+                    show_bar: false,
+                }
+            }
+        }
+        TrayStatus::Reading => PopupView {
+            percent: 0,
+            percent_text: "···".to_string(),
+            primary: strings.reading,
+            secondary: "",
+            connection: "",
+            accent: rgb(91, 156, 255),
+            show_bar: false,
+        },
+        TrayStatus::Unavailable(error) => match error.kind {
+            ReadErrorKind::DeviceNotFound => PopupView {
+                percent: 0,
+                percent_text: "—".to_string(),
+                primary: strings.device_not_found,
+                secondary: strings.device_not_found_help,
+                connection: "",
+                accent: rgb(112, 123, 137),
+                show_bar: false,
+            },
+            ReadErrorKind::NoBatteryData | ReadErrorKind::System => PopupView {
+                percent: 0,
+                percent_text: "—".to_string(),
+                primary: strings.read_failed,
+                secondary: strings.read_failed_help,
+                connection: "",
+                accent: rgb(255, 91, 98),
+                show_bar: false,
+            },
+        },
+    }
+}
+
+fn draw_popup_battery_bar(hdc: Hdc, percent: u8, accent: Dword, show_fill: bool) {
+    const LEFT: i32 = 16;
+    const RIGHT: i32 = 276;
+    const WIDTH: u16 = (RIGHT - LEFT) as u16;
+
+    fill_dc_round_rect(hdc, Rect::new(LEFT, 116, RIGHT, 124), 8, rgb(35, 40, 47));
+    if show_fill && percent > 0 {
+        let fill_width = (WIDTH * u16::from(percent)).div_ceil(100) as i32;
+        fill_dc_round_rect(
+            hdc,
+            Rect::new(LEFT, 116, LEFT + fill_width.max(8).min(WIDTH as i32), 124),
+            8,
+            accent,
         );
     }
 }
@@ -940,34 +1355,41 @@ fn fill_dc_rect(hdc: Hdc, rect: Rect, color: Dword) {
     }
 }
 
-fn draw_dc_text(
-    hdc: Hdc,
-    text: &str,
-    mut rect: Rect,
-    font_height: i32,
-    weight: i32,
-    color: Dword,
-    flags: u32,
-) {
-    let face = wide_null("Segoe UI");
-    let font = unsafe {
-        CreateFontW(
-            font_height,
-            0,
-            0,
-            0,
-            weight,
-            0,
-            0,
-            0,
-            1,
-            0,
-            0,
-            0,
-            0,
-            face.as_ptr(),
+fn fill_dc_round_rect(hdc: Hdc, rect: Rect, corner_diameter: i32, color: Dword) {
+    let region = unsafe {
+        CreateRoundRectRgn(
+            rect.left,
+            rect.top,
+            rect.right,
+            rect.bottom,
+            corner_diameter,
+            corner_diameter,
         )
     };
+    let brush = unsafe { CreateSolidBrush(color) };
+    if region == 0 || brush == 0 {
+        if region != 0 {
+            unsafe {
+                DeleteObject(region as Hgdiobj);
+            }
+        }
+        if brush != 0 {
+            unsafe {
+                DeleteObject(brush as Hgdiobj);
+            }
+        }
+        return;
+    }
+
+    unsafe {
+        FillRgn(hdc, region, brush);
+        DeleteObject(region as Hgdiobj);
+        DeleteObject(brush as Hgdiobj);
+    }
+}
+
+fn draw_dc_text(hdc: Hdc, text: &str, mut rect: Rect, style: PopupTextStyle) {
+    let font = create_popup_font(style);
     if font == 0 {
         return;
     }
@@ -976,16 +1398,61 @@ fn draw_dc_text(
     unsafe {
         let old_font = SelectObject(hdc, font as Hgdiobj);
         SetBkMode(hdc, TRANSPARENT);
-        SetTextColor(hdc, color);
+        SetTextColor(hdc, style.color);
         DrawTextW(
             hdc,
             text_wide.as_ptr(),
             text_wide.len().saturating_sub(1) as i32,
             &mut rect,
-            flags,
+            style.flags,
         );
         SelectObject(hdc, old_font);
         DeleteObject(font as Hgdiobj);
+    }
+}
+
+fn measure_dc_text_width(hdc: Hdc, text: &str, style: PopupTextStyle) -> i32 {
+    let font = create_popup_font(style);
+    if font == 0 {
+        return 0;
+    }
+
+    let text_wide = wide_null(text);
+    let mut rect = Rect::new(0, 0, 0, 0);
+    unsafe {
+        let old_font = SelectObject(hdc, font as Hgdiobj);
+        DrawTextW(
+            hdc,
+            text_wide.as_ptr(),
+            text_wide.len().saturating_sub(1) as i32,
+            &mut rect,
+            DT_CALCRECT | DT_SINGLELINE,
+        );
+        SelectObject(hdc, old_font);
+        DeleteObject(font as Hgdiobj);
+    }
+    rect.right - rect.left
+}
+
+fn create_popup_font(style: PopupTextStyle) -> Hfont {
+    let face = wide_null(style.face);
+    unsafe {
+        CreateFontW(
+            style.height,
+            0,
+            0,
+            0,
+            style.weight,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            CLEARTYPE_QUALITY,
+            0,
+            face.as_ptr(),
+        )
     }
 }
 
@@ -1001,6 +1468,25 @@ fn current_show_percent_on_icon() -> bool {
         .unwrap_or(true)
 }
 
+fn current_language() -> Language {
+    APP_STATE
+        .get()
+        .and_then(|state_lock| state_lock.lock().ok())
+        .map(|state| state.language)
+        .unwrap_or(Language::English)
+}
+
+fn current_settings() -> Settings {
+    APP_STATE
+        .get()
+        .and_then(|state_lock| state_lock.lock().ok())
+        .map(|state| Settings {
+            show_percent_on_icon: state.show_percent_on_icon,
+            language: state.language,
+        })
+        .unwrap_or_default()
+}
+
 fn current_icon_options() -> (bool, u8) {
     APP_STATE
         .get()
@@ -1012,16 +1498,26 @@ fn current_icon_options() -> (bool, u8) {
 fn toggle_percent_on_icon() {
     let new_value = !current_show_percent_on_icon();
 
-    if let Some(state_lock) = APP_STATE.get() {
-        if let Ok(mut state) = state_lock.lock() {
-            state.show_percent_on_icon = new_value;
-        }
+    if let Some(state_lock) = APP_STATE.get()
+        && let Ok(mut state) = state_lock.lock()
+    {
+        state.show_percent_on_icon = new_value;
     }
 
-    let _ = save_settings(&Settings {
-        show_percent_on_icon: new_value,
-    });
+    let _ = settings::save(current_settings());
     refresh_tray();
+}
+
+fn set_language(language: Language) {
+    if let Some(state_lock) = APP_STATE.get()
+        && let Ok(mut state) = state_lock.lock()
+    {
+        state.language = language;
+    }
+
+    let _ = settings::save(current_settings());
+    let _ = add_or_update_tray_icon(NIM_MODIFY);
+    invalidate_status_popup();
 }
 
 fn tick_charge_animation() {
@@ -1033,8 +1529,9 @@ fn tick_charge_animation() {
         return;
     };
 
-    let charging = matches!(&state.status, TrayStatus::Ready(battery) if battery.charging);
-    if !charging {
+    let charging =
+        matches!(&state.status, TrayStatus::Ready(battery) if battery.online && battery.charging);
+    if !charging || state.show_percent_on_icon {
         state.animation_phase = 0;
         return;
     }
@@ -1045,7 +1542,7 @@ fn tick_charge_animation() {
     let animation_phase = state.animation_phase;
     drop(state);
 
-    replace_tray_icon(status, show_percent_on_icon, animation_phase);
+    replace_tray_icon(status, show_percent_on_icon, animation_phase, false);
 }
 
 fn cleanup_tray() {
@@ -1066,7 +1563,7 @@ fn cleanup_tray() {
         unsafe {
             KillTimer(hwnd, REFRESH_TIMER_ID);
             KillTimer(hwnd, CHARGE_ANIMATION_TIMER_ID);
-            KillTimer(hwnd, POPUP_HIDE_TIMER_ID);
+            KillTimer(hwnd, POPUP_LIVE_REFRESH_TIMER_ID);
         }
         let _ = delete_tray_icon(hwnd);
     }
@@ -1085,11 +1582,17 @@ fn refresh_tray() {
     };
 
     let (show_percent_on_icon, animation_phase) = current_icon_options();
-    replace_tray_icon(status, show_percent_on_icon, animation_phase);
+    replace_tray_icon(status, show_percent_on_icon, animation_phase, true);
 }
 
-fn replace_tray_icon(status: TrayStatus, show_percent_on_icon: bool, animation_phase: u8) {
-    let icon_phase = if matches!(&status, TrayStatus::Ready(battery) if battery.charging) {
+fn replace_tray_icon(
+    status: TrayStatus,
+    show_percent_on_icon: bool,
+    animation_phase: u8,
+    invalidate_popup: bool,
+) {
+    let icon_phase = if matches!(&status, TrayStatus::Ready(battery) if battery.online && battery.charging)
+    {
         animation_phase
     } else {
         0
@@ -1098,21 +1601,23 @@ fn replace_tray_icon(status: TrayStatus, show_percent_on_icon: bool, animation_p
         return;
     };
 
-    if let Some(state_lock) = APP_STATE.get() {
-        if let Ok(mut state) = state_lock.lock() {
-            let old_icon = state.icon;
-            state.icon = new_icon;
-            state.status = status;
-            state.animation_phase = icon_phase;
-            drop(state);
+    if let Some(state_lock) = APP_STATE.get()
+        && let Ok(mut state) = state_lock.lock()
+    {
+        let old_icon = state.icon;
+        state.icon = new_icon;
+        state.status = status;
+        state.animation_phase = icon_phase;
+        drop(state);
 
-            let _ = add_or_update_tray_icon(NIM_MODIFY);
+        let _ = add_or_update_tray_icon(NIM_MODIFY);
+        if invalidate_popup {
             invalidate_status_popup();
+        }
 
-            if old_icon != 0 {
-                unsafe {
-                    DestroyIcon(old_icon);
-                }
+        if old_icon != 0 {
+            unsafe {
+                DestroyIcon(old_icon);
             }
         }
     }
@@ -1133,7 +1638,7 @@ fn add_or_update_tray_icon(message: u32) -> Result<(), String> {
     data.flags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
     data.callback_message = TRAY_CALLBACK;
     data.icon = state.icon;
-    write_wide_fixed(&mut data.tip, &status_text(&state.status));
+    write_wide_fixed(&mut data.tip, &status_text(&state.status, state.language));
 
     let ok = unsafe { Shell_NotifyIconW(message, &mut data) };
     if ok == 0 {
@@ -1163,201 +1668,34 @@ fn delete_tray_icon(hwnd: Hwnd) -> Result<(), String> {
     }
 }
 
-fn status_text(status: &TrayStatus) -> String {
+fn status_text(status: &TrayStatus, language: Language) -> String {
+    let strings = language.strings();
     match status {
-        TrayStatus::Reading => "Мышь Ninjutso: чтение заряда...".to_string(),
+        TrayStatus::Reading => format!("Ninjutso Ten: {}", strings.reading),
         TrayStatus::Ready(battery) => {
-            let online = if battery.online {
-                "подключена"
+            let source = match battery.connection {
+                ConnectionKind::Wired => strings.wired,
+                ConnectionKind::Receiver => strings.receiver,
+            };
+            if !battery.online {
+                return format!("Ninjutso Ten: {} · {source}", strings.disconnected);
+            }
+            let charge = if battery.charging {
+                strings.charging
             } else {
-                "не подключена"
+                strings.not_charging
             };
-            let charging = if battery.charging {
-                "заряжается"
-            } else {
-                "не заряжается"
-            };
-            format!("Мышь Ninjutso: {}% ({online}, {charging})", battery.percent)
+            format!("Ninjutso Ten: {}% · {charge} · {source}", battery.percent)
         }
-        TrayStatus::Unavailable(err) => {
-            let short = err.lines().next().unwrap_or("not available");
-            format!("Заряд мыши Ninjutso: {short}")
-        }
-    }
-}
-
-fn read_mouse_battery() -> Result<MouseBattery, String> {
-    let paths = enumerate_hid_paths(DEVICE_FILTER)?;
-    if paths.is_empty() {
-        return Err("device not found".to_string());
-    }
-
-    let mut last_error = None;
-    for path in paths {
-        match query_battery_path(&path) {
-            Ok(status) => return Ok(status),
-            Err(err) => last_error = Some(err),
-        }
-    }
-
-    Err(last_error.unwrap_or_else(|| "no HID collection returned battery data".to_string()))
-}
-
-fn query_battery_path(path: &str) -> Result<MouseBattery, String> {
-    let online = query_feature(path, 19)?;
-    let battery = query_feature(path, 18)?;
-    let charge = query_feature(path, 17)?;
-
-    if online[1] != 19 || battery[1] != 18 || charge[1] != 17 {
-        return Err("unexpected HID report response".to_string());
-    }
-
-    Ok(MouseBattery {
-        percent: battery[8],
-        online: online[8] == 1,
-        charging: charge[8] != 0,
-    })
-}
-
-fn query_feature(path: &str, command: u8) -> Result<[u8; 16], String> {
-    let wide_path = wide_null(path);
-    let handle = unsafe {
-        CreateFileW(
-            wide_path.as_ptr(),
-            GENERIC_READ | GENERIC_WRITE,
-            FILE_SHARE_READ | FILE_SHARE_WRITE,
-            null_mut(),
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL,
-            0,
-        )
-    };
-    let handle = OwnedHandle::new(handle)?;
-
-    let mut out_report = [0u8; 16];
-    out_report[0] = 6;
-    out_report[1] = command;
-    out_report[4] = 1;
-
-    let ok = unsafe { HidD_SetFeature(handle.0, out_report.as_mut_ptr(), out_report.len() as u32) };
-    if ok == 0 {
-        return Err(format!(
-            "HidD_SetFeature command {command} failed: {}",
-            io::Error::last_os_error()
-        ));
-    }
-
-    thread::sleep(Duration::from_millis(30));
-
-    let mut in_report = [0u8; 16];
-    in_report[0] = 6;
-    let ok = unsafe { HidD_GetFeature(handle.0, in_report.as_mut_ptr(), in_report.len() as u32) };
-    if ok == 0 {
-        return Err(format!(
-            "HidD_GetFeature command {command} failed: {}",
-            io::Error::last_os_error()
-        ));
-    }
-
-    Ok(in_report)
-}
-
-fn enumerate_hid_paths(filter: &str) -> Result<Vec<String>, String> {
-    let mut hid_guid = Guid::default();
-    unsafe {
-        HidD_GetHidGuid(&mut hid_guid);
-    }
-
-    let info = unsafe {
-        SetupDiGetClassDevsW(&hid_guid, null(), 0, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE)
-    };
-    if info == INVALID_HANDLE_VALUE {
-        return Err(format!(
-            "SetupDiGetClassDevsW failed: {}",
-            io::Error::last_os_error()
-        ));
-    }
-
-    let mut paths = Vec::new();
-    let mut index = 0;
-    loop {
-        let mut iface = SpDeviceInterfaceData {
-            cb_size: size_of::<SpDeviceInterfaceData>() as u32,
-            interface_class_guid: Guid::default(),
-            flags: 0,
-            reserved: 0,
-        };
-
-        let ok =
-            unsafe { SetupDiEnumDeviceInterfaces(info, null_mut(), &hid_guid, index, &mut iface) };
-        if ok == 0 {
-            let err = unsafe { GetLastError() };
-            if err == ERROR_NO_MORE_ITEMS {
-                break;
+        TrayStatus::Unavailable(error) => match error.kind {
+            ReadErrorKind::DeviceNotFound => {
+                format!("Ninjutso Ten: {}", strings.device_not_found)
             }
-            unsafe {
-                SetupDiDestroyDeviceInfoList(info);
+            ReadErrorKind::NoBatteryData | ReadErrorKind::System => {
+                format!("Ninjutso Ten: {}", strings.read_failed)
             }
-            return Err(format!(
-                "SetupDiEnumDeviceInterfaces failed: {}",
-                io::Error::from_raw_os_error(err as i32)
-            ));
-        }
-
-        let mut required = 0u32;
-        unsafe {
-            SetupDiGetDeviceInterfaceDetailW(
-                info,
-                &mut iface,
-                null_mut(),
-                0,
-                &mut required,
-                null_mut(),
-            );
-        }
-
-        if required > 0 {
-            let mut detail = vec![0u8; required as usize];
-            let cb_size = if size_of::<usize>() == 8 { 8u32 } else { 6u32 };
-            unsafe {
-                (detail.as_mut_ptr() as *mut u32).write_unaligned(cb_size);
-            }
-
-            let ok = unsafe {
-                SetupDiGetDeviceInterfaceDetailW(
-                    info,
-                    &mut iface,
-                    detail.as_mut_ptr() as *mut c_void,
-                    required,
-                    &mut required,
-                    null_mut(),
-                )
-            };
-
-            if ok != 0 {
-                let path = unsafe { wide_ptr_to_string(detail.as_ptr().add(4) as *const u16) };
-                if path.to_ascii_lowercase().contains(filter) {
-                    paths.push(path);
-                }
-            }
-        }
-
-        index += 1;
+        },
     }
-
-    unsafe {
-        SetupDiDestroyDeviceInfoList(info);
-    }
-    Ok(paths)
-}
-
-unsafe fn wide_ptr_to_string(ptr: *const u16) -> String {
-    let mut len = 0usize;
-    while unsafe { *ptr.add(len) } != 0 {
-        len += 1;
-    }
-    let slice = unsafe { std::slice::from_raw_parts(ptr, len) };
-    String::from_utf16_lossy(slice)
 }
 
 fn create_battery_icon(
@@ -1365,9 +1703,27 @@ fn create_battery_icon(
     show_percent_on_icon: bool,
     animation_phase: u8,
 ) -> Result<Hicon, String> {
+    create_icon_from_pixels(&render_battery_icon_pixels(
+        status,
+        show_percent_on_icon,
+        animation_phase,
+    ))
+}
+
+fn render_battery_icon_pixels(
+    status: &TrayStatus,
+    show_percent_on_icon: bool,
+    animation_phase: u8,
+) -> Vec<Rgba> {
     let mut pixels = vec![Rgba::transparent(); (ICON_SIZE * ICON_SIZE) as usize];
 
     let (percent, fill_color, empty_color, charging) = match status {
+        TrayStatus::Ready(battery) if !battery.online => (
+            100,
+            Rgba::opaque(120, 120, 120),
+            Rgba::opaque(42, 48, 52),
+            false,
+        ),
         TrayStatus::Ready(battery) => {
             let color = if battery.percent >= 50 {
                 Rgba::opaque(35, 190, 85)
@@ -1380,7 +1736,7 @@ fn create_battery_icon(
                 battery.percent.min(100),
                 color,
                 Rgba::opaque(38, 43, 47),
-                battery.charging,
+                battery.online && battery.charging,
             )
         }
         TrayStatus::Reading => (
@@ -1400,24 +1756,33 @@ fn create_battery_icon(
     let black = Rgba::opaque(0, 0, 0);
     let white = Rgba::opaque(255, 255, 255);
 
-    draw_large_battery(
-        &mut pixels,
-        percent,
-        fill_color,
-        empty_color,
-        black,
-        white,
-        charging,
-        animation_phase,
-    );
-
-    if show_percent_on_icon {
-        if let TrayStatus::Ready(battery) = status {
-            draw_percent_label(&mut pixels, battery.percent.min(100), black, white);
-        }
+    if show_percent_on_icon
+        && let TrayStatus::Ready(battery) = status
+        && battery.online
+    {
+        draw_numeric_battery_badge(
+            &mut pixels,
+            battery.percent.min(100),
+            fill_color,
+            black,
+            white,
+        );
+    } else {
+        draw_large_battery(
+            &mut pixels,
+            percent,
+            BatteryIconStyle {
+                fill: fill_color,
+                empty: empty_color,
+                outline: black,
+                border: white,
+                charging,
+                animation_phase,
+            },
+        );
     }
 
-    create_icon_from_pixels(&pixels)
+    pixels
 }
 
 fn fill_rect(pixels: &mut [Rgba], x: i32, y: i32, width: i32, height: i32, color: Rgba) {
@@ -1435,21 +1800,12 @@ fn set_pixel(pixels: &mut [Rgba], x: i32, y: i32, color: Rgba) {
     }
 }
 
-fn draw_large_battery(
-    pixels: &mut [Rgba],
-    percent: u8,
-    fill_color: Rgba,
-    empty_color: Rgba,
-    outline: Rgba,
-    border: Rgba,
-    charging: bool,
-    animation_phase: u8,
-) {
+fn draw_large_battery(pixels: &mut [Rgba], percent: u8, style: BatteryIconStyle) {
     let center_x = 16;
     let inner_top = 5;
     let inner_bottom = 28;
     let inner_height = inner_bottom - inner_top + 1;
-    let fill_height = ((inner_height as u16 * percent as u16 + 99) / 100) as i32;
+    let fill_height = (inner_height as u16 * u16::from(percent)).div_ceil(100) as i32;
     let fill_top = inner_bottom + 1 - fill_height.clamp(1, inner_height);
 
     for y in 0..ICON_SIZE {
@@ -1458,58 +1814,57 @@ fn draw_large_battery(
             continue;
         }
         for x in (center_x - half)..=(center_x + half) {
-            set_pixel(pixels, x, y, outline);
+            set_pixel(pixels, x, y, style.outline);
         }
     }
 
     for y in 0..ICON_SIZE {
-        let half = mouse_body_half_width(y) - 2;
+        let half = mouse_body_half_width(y) - 1;
         if half <= 0 {
             continue;
         }
         for x in (center_x - half)..=(center_x + half) {
-            set_pixel(pixels, x, y, border);
+            set_pixel(pixels, x, y, style.border);
         }
     }
 
     for y in 0..ICON_SIZE {
-        let half = mouse_body_half_width(y) - 4;
+        let half = mouse_body_half_width(y) - 3;
         if half <= 0 {
             continue;
         }
         for x in (center_x - half)..=(center_x + half) {
             let color = if y >= fill_top {
-                fill_color
+                style.fill
             } else {
-                empty_color
+                style.empty
             };
             set_pixel(pixels, x, y, color);
         }
     }
 
-    if charging {
-        draw_mouse_charge_wave(pixels, fill_top, fill_color, animation_phase);
+    if style.charging {
+        draw_mouse_charge_wave(pixels, fill_top, style.fill, style.animation_phase);
     }
 
-    fill_rect(pixels, center_x - 1, 4, 2, 7, outline);
-    fill_rect(pixels, center_x - 6, 11, 13, 2, outline);
-    fill_rect(pixels, center_x - 1, 13, 2, 8, outline);
-    fill_rect(pixels, center_x - 1, 5, 2, 5, border);
+    fill_rect(pixels, center_x - 1, 5, 2, 7, style.outline);
+    fill_rect(pixels, center_x - 1, 6, 2, 4, style.border);
 }
 
 fn mouse_body_half_width(y: i32) -> i32 {
     match y {
         0 => 0,
-        1 => 4,
+        1 => 3,
         2 => 6,
         3 => 8,
-        4..=22 => 11,
+        4..=5 => 10,
+        6..=22 => 11,
         23..=24 => 10,
         25 => 9,
         26 => 8,
-        27 => 6,
+        27 => 7,
         28 => 5,
-        29 => 3,
+        29 => 2,
         _ => 0,
     }
 }
@@ -1524,7 +1879,7 @@ fn draw_mouse_charge_wave(
     let offset = (animation_phase as i32 * 5) % 34 - 12;
 
     for y in fill_top..=28 {
-        let half = mouse_body_half_width(y) - 4;
+        let half = mouse_body_half_width(y) - 3;
         if half <= 0 {
             continue;
         }
@@ -1547,22 +1902,60 @@ fn mix_color(base: Rgba, overlay: Rgba, overlay_parts: u16, total_parts: u16) ->
     }
 }
 
-fn draw_percent_label(pixels: &mut [Rgba], percent: u8, shadow: Rgba, color: Rgba) {
+fn draw_numeric_battery_badge(
+    pixels: &mut [Rgba],
+    percent: u8,
+    accent: Rgba,
+    outline: Rgba,
+    text_color: Rgba,
+) {
+    let surface = Rgba::opaque(19, 23, 27);
+
+    for y in 0..ICON_SIZE {
+        let half = numeric_badge_half_width(y);
+        if half <= 0 {
+            continue;
+        }
+
+        for x in (16 - half)..=(16 + half) {
+            let distance_to_edge = half - (x - 16).abs();
+            let color = if distance_to_edge == 0 {
+                outline
+            } else if distance_to_edge <= 2 || y <= 2 || y >= 29 {
+                accent
+            } else {
+                surface
+            };
+            set_pixel(pixels, x, y, color);
+        }
+    }
+
+    draw_percent_label(pixels, percent, text_color);
+}
+
+fn numeric_badge_half_width(y: i32) -> i32 {
+    match y {
+        0 => 0,
+        1 => 9,
+        2 => 12,
+        3 => 14,
+        4..=26 => 15,
+        27 => 14,
+        28 => 12,
+        29 => 9,
+        30 => 5,
+        _ => 0,
+    }
+}
+
+fn draw_percent_label(pixels: &mut [Rgba], percent: u8, color: Rgba) {
     let text = percent.to_string();
-    let scale = if text.len() >= 3 { 3 } else { 4 };
+    let scale = 3;
     let width = tiny_text_width(&text, scale);
     let height = 7 * scale;
     let x = ((ICON_SIZE - width) / 2).max(0);
     let y = ((ICON_SIZE - height) / 2).max(0);
 
-    draw_tiny_text(pixels, &text, x - 1, y - 1, scale, shadow);
-    draw_tiny_text(pixels, &text, x, y - 1, scale, shadow);
-    draw_tiny_text(pixels, &text, x + 1, y - 1, scale, shadow);
-    draw_tiny_text(pixels, &text, x - 1, y, scale, shadow);
-    draw_tiny_text(pixels, &text, x + 1, y, scale, shadow);
-    draw_tiny_text(pixels, &text, x - 1, y + 1, scale, shadow);
-    draw_tiny_text(pixels, &text, x + 1, y + 1, scale, shadow);
-    draw_tiny_text(pixels, &text, x, y + 1, scale, shadow);
     draw_tiny_text(pixels, &text, x, y, scale, color);
 }
 
@@ -1710,55 +2103,6 @@ fn write_wide_fixed(target: &mut [u16], text: &str) {
     target[..len].copy_from_slice(&wide[..len]);
 }
 
-fn load_settings() -> Settings {
-    let default = Settings {
-        show_percent_on_icon: true,
-    };
-
-    let Some(path) = settings_path() else {
-        return default;
-    };
-
-    let Ok(text) = fs::read_to_string(path) else {
-        return default;
-    };
-
-    for line in text.lines() {
-        if let Some(value) = line.trim().strip_prefix("large_icon_percent=") {
-            return Settings {
-                show_percent_on_icon: matches!(value.trim(), "true" | "1" | "yes" | "on"),
-            };
-        }
-    }
-
-    default
-}
-
-fn save_settings(settings: &Settings) -> Result<(), String> {
-    let path = settings_path().ok_or_else(|| "APPDATA is not available".to_string())?;
-
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|err| format!("Не удалось создать папку настроек: {err}"))?;
-    }
-
-    let value = if settings.show_percent_on_icon {
-        "true"
-    } else {
-        "false"
-    };
-    fs::write(path, format!("large_icon_percent={value}\n"))
-        .map_err(|err| format!("Не удалось сохранить настройки: {err}"))
-}
-
-fn settings_path() -> Option<PathBuf> {
-    env::var_os("APPDATA").map(|appdata| {
-        PathBuf::from(appdata)
-            .join("NinjutsoBatteryTray")
-            .join("settings.txt")
-    })
-}
-
 fn wide_null(text: &str) -> Vec<u16> {
     OsStr::new(text).encode_wide().chain(once(0)).collect()
 }
@@ -1768,5 +2112,149 @@ fn show_error(message: &str) {
     let caption = wide_null(APP_NAME);
     unsafe {
         MessageBoxW(0, text.as_ptr(), caption.as_ptr(), MB_OK | MB_ICONERROR);
+    }
+}
+
+fn show_information(message: &str) {
+    let text = wide_null(message);
+    let caption = wide_null(APP_NAME);
+    unsafe {
+        MessageBoxW(
+            0,
+            text.as_ptr(),
+            caption.as_ptr(),
+            MB_OK | MB_ICONINFORMATION,
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ConnectionKind, ICON_SIZE, Language, MENU_LANGUAGE_FIRST, MouseBattery,
+        PopupLiveRefreshAction, Rgba, SingleInstanceGuard, TrayLeftClickAction, TrayStatus,
+        language_from_menu_command, popup_live_refresh_action, popup_view,
+        popup_was_visible_for_tray_click, render_battery_icon_pixels, status_text, tiny_text_width,
+        tray_left_click_action,
+    };
+
+    #[test]
+    fn every_language_has_a_menu_command() {
+        for (index, language) in Language::ALL.into_iter().enumerate() {
+            assert_eq!(
+                language_from_menu_command(MENU_LANGUAGE_FIRST + index as u32),
+                Some(language)
+            );
+        }
+    }
+
+    #[test]
+    fn localized_wired_tooltips_fit_the_windows_limit() {
+        let status = TrayStatus::Ready(MouseBattery {
+            percent: 100,
+            online: true,
+            charging: true,
+            connection: ConnectionKind::Wired,
+        });
+
+        for language in Language::ALL {
+            let tooltip = status_text(&status, language);
+            assert!(tooltip.encode_utf16().count() < 128, "{tooltip}");
+        }
+        assert!(status_text(&status, Language::ChineseSimplified).contains("充电中"));
+    }
+
+    #[test]
+    fn tray_click_keeps_the_pre_deactivation_visibility() {
+        assert!(popup_was_visible_for_tray_click(true, 0, 1_000));
+        assert!(popup_was_visible_for_tray_click(false, 900, 1_000));
+        assert!(!popup_was_visible_for_tray_click(false, 500, 1_000));
+    }
+
+    #[test]
+    fn opening_the_flyout_refreshes_connection_data() {
+        assert_eq!(
+            tray_left_click_action(false),
+            TrayLeftClickAction::RefreshAndShow
+        );
+        assert_eq!(tray_left_click_action(true), TrayLeftClickAction::Hide);
+    }
+
+    #[test]
+    fn live_refresh_runs_only_while_the_flyout_is_visible() {
+        assert_eq!(
+            popup_live_refresh_action(true),
+            PopupLiveRefreshAction::Refresh
+        );
+        assert_eq!(
+            popup_live_refresh_action(false),
+            PopupLiveRefreshAction::Stop
+        );
+    }
+
+    #[test]
+    fn disconnected_mouse_has_an_explicit_flyout_state_in_every_language() {
+        let status = TrayStatus::Ready(MouseBattery {
+            percent: 73,
+            online: false,
+            charging: false,
+            connection: ConnectionKind::Receiver,
+        });
+
+        for language in Language::ALL {
+            let view = popup_view(&status, language);
+            assert_eq!(view.percent_text, "—");
+            assert_eq!(view.primary, language.strings().disconnected);
+            assert_eq!(view.connection, language.strings().receiver);
+            assert!(!view.show_bar);
+        }
+    }
+
+    #[test]
+    fn every_battery_percentage_fits_the_numeric_tray_badge() {
+        for percent in 0..=100 {
+            assert!(tiny_text_width(&percent.to_string(), 3) <= ICON_SIZE - 2);
+        }
+    }
+
+    #[test]
+    fn numeric_tray_badge_is_high_contrast_and_does_not_animate() {
+        let status = TrayStatus::Ready(MouseBattery {
+            percent: 100,
+            online: true,
+            charging: true,
+            connection: ConnectionKind::Wired,
+        });
+
+        let first = render_battery_icon_pixels(&status, true, 0);
+        let later = render_battery_icon_pixels(&status, true, 17);
+        assert_eq!(first, later);
+
+        let white = Rgba::opaque(255, 255, 255);
+        let dark_surface = Rgba::opaque(19, 23, 27);
+        assert!(first.iter().filter(|pixel| **pixel == white).count() > 100);
+        assert!(first.iter().filter(|pixel| **pixel == dark_surface).count() > 100);
+    }
+
+    #[test]
+    fn named_mutex_allows_only_one_instance() {
+        let name = format!(
+            "Local\\NinjutsoBatteryTray.Test.Singleton.{}",
+            std::process::id()
+        );
+        let first = SingleInstanceGuard::acquire_named(&name)
+            .expect("first mutex creation should succeed")
+            .expect("first mutex must be acquired");
+        assert!(
+            SingleInstanceGuard::acquire_named(&name)
+                .expect("second mutex lookup should succeed")
+                .is_none()
+        );
+        drop(first);
+        assert!(
+            SingleInstanceGuard::acquire_named(&name)
+                .expect("mutex should be reusable after drop")
+                .is_some()
+        );
     }
 }

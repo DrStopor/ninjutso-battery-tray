@@ -85,10 +85,10 @@ fn compile_resource(rc_path: &PathBuf, res_path: &PathBuf) -> io::Result<()> {
     if status.success() {
         Ok(())
     } else {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!("{} failed with status {status}", rc_exe.display()),
-        ))
+        Err(io::Error::other(format!(
+            "{} failed with status {status}",
+            rc_exe.display()
+        )))
     }
 }
 
@@ -205,6 +205,7 @@ fn draw_circle(
     draw_ellipse(pixels, size, cx, cy, radius, radius, color, scale, 0.0, 0.0);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_ellipse(
     pixels: &mut [Rgba],
     size: i32,
@@ -233,6 +234,7 @@ fn draw_ellipse(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn fill_rect_scaled(
     pixels: &mut [Rgba],
     size: i32,

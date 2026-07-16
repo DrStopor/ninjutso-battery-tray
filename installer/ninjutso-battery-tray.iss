@@ -4,7 +4,7 @@
 #define MyAppRunName "NinjutsoBatteryTray"
 
 #ifndef MyAppVersion
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.2.0"
 #endif
 
 [Setup]
@@ -21,6 +21,8 @@ OutputBaseFilename=NinjutsoBatteryTraySetup-{#MyAppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+LanguageDetectionMethod=uilanguage
+ShowLanguageDialog=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 CloseApplications=yes
@@ -34,10 +36,22 @@ VersionInfoProductName={#MyAppName}
 VersionInfoProductVersion={#MyAppVersion}
 
 [Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
+Name: "belarusian"; MessagesFile: "compiler:Default.isl,languages\Belarusian.isl"
+Name: "kazakh"; MessagesFile: "compiler:Default.isl,languages\Kazakh.islu"
+Name: "chinesesimplified"; MessagesFile: "compiler:Default.isl,languages\ChineseSimplified.isl"
+
+[LangOptions]
+kazakh.LanguageName=Қазақша
+
+[CustomMessages]
+kazakh.AutoStartProgramGroupDescription=Автоматты іске қосу:
+kazakh.AutoStartProgram=%1 қолданбасын Windows жүйесімен бірге іске қосу
+kazakh.LaunchProgram=%1 қолданбасын іске қосу
 
 [Tasks]
-Name: "autostart"; Description: "Запускать вместе с Windows"; GroupDescription: "Автозапуск:"; Flags: checkedonce
+Name: "autostart"; Description: "{cm:AutoStartProgram,{#MyAppName}}"; GroupDescription: "{cm:AutoStartProgramGroupDescription}"; Flags: checkedonce
 
 [Files]
 Source: "..\target\release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
@@ -50,7 +64,7 @@ Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: s
 Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "{#MyAppRunName}"; Flags: deletevalue; Tasks: not autostart
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "Запустить {#MyAppName}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/C taskkill /IM ""{#MyAppExeName}"" /F /T >NUL 2>NUL || exit /B 0"; Flags: runhidden; RunOnceId: "StopApp"
