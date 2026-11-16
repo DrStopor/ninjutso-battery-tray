@@ -9,12 +9,15 @@ Initialize-ProjectToolchain -RepoRoot $RepoRoot
 Push-Location $RepoRoot
 try {
     & (Join-Path $PSScriptRoot 'verify-docs.ps1')
-    Invoke-CheckedNative -FilePath cargo -Arguments @('fmt', '--check')
-    Invoke-CheckedNative -FilePath cargo -Arguments @('clippy', '--all-targets', '--locked', '--', '-D', 'warnings')
-    Invoke-CheckedNative -FilePath cargo -Arguments @('test', '--locked')
+    & (Join-Path $PSScriptRoot 'update-licenses.ps1') -Check
+    Invoke-CheckedNative -FilePath cargo -Arguments @('fmt', '--all', '--check')
+    Invoke-CheckedNative -FilePath cargo -Arguments @('clippy', '--workspace', '--all-targets', '--locked', '--', '-D', 'warnings')
+    Invoke-CheckedNative -FilePath cargo -Arguments @('test', '--workspace', '--locked')
+    Invoke-CheckedNative -FilePath cargo -Arguments @('clippy', '--workspace', '--all-targets', '--no-default-features', '--target-dir', 'target/native', '--locked', '--', '-D', 'warnings')
+    Invoke-CheckedNative -FilePath cargo -Arguments @('test', '--workspace', '--no-default-features', '--target-dir', 'target/native', '--locked')
     Invoke-CheckedNative -FilePath cargo -Arguments @('build', '--release', '--locked')
     if ($CheckLinuxCore) {
-        Invoke-CheckedNative -FilePath cargo -Arguments @('check', '--all-targets', '--locked', '--target', 'x86_64-unknown-linux-gnu')
+        Invoke-CheckedNative -FilePath cargo -Arguments @('check', '--workspace', '--all-targets', '--locked', '--target', 'x86_64-unknown-linux-gnu')
     }
     $expected = Get-ProjectVersion -RepoRoot $RepoRoot
     $actual = (Get-Item -LiteralPath 'target\release\ninjutso-battery-tray.exe').VersionInfo.ProductVersion

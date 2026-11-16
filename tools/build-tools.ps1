@@ -15,6 +15,29 @@ function Initialize-ProjectToolchain {
         $env:CARGO_HOME = Join-Path $RepoRoot 'target\tooling\cargo'
         $env:PATH = "$localBin;$env:PATH"
     }
+    if ($env:GPUI_FXC_PATH) {
+        if (-not (Test-Path -LiteralPath $env:GPUI_FXC_PATH -PathType Leaf)) {
+            throw "GPUI_FXC_PATH does not exist: $env:GPUI_FXC_PATH"
+        }
+    } else {
+        $fxc = Get-Command fxc.exe -ErrorAction SilentlyContinue
+        if ($fxc) { $env:GPUI_FXC_PATH = $fxc.Source }
+        else {
+            $sdkBin = Join-Path ([Environment]::GetEnvironmentVariable('ProgramFiles(x86)')) 'Windows Kits\10\bin'
+            if (Test-Path -LiteralPath $sdkBin -PathType Container) {
+                $versions = Get-ChildItem -LiteralPath $sdkBin -Directory |
+                    Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } |
+                    Sort-Object { [version]$_.Name } -Descending
+                foreach ($version in $versions) {
+                    $candidate = Join-Path $version.FullName 'x64\fxc.exe'
+                    if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+                        $env:GPUI_FXC_PATH = $candidate
+                        break
+                    }
+                }
+            }
+        }
+    }
 }
 
 function Invoke-CheckedNative {

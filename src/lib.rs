@@ -1,8 +1,10 @@
-//! Platform-independent application data and presentation for tray frontends.
-pub mod i18n;
-pub mod model;
-pub mod presentation;
-pub mod settings;
+//! Desktop host and platform adapters. Portable logic lives in the core crate.
+pub use ninjutso_battery_core::{
+    application, battery_service, i18n, model, presentation, protocol, settings,
+};
+
+#[cfg(all(windows, feature = "gpui-ui"))]
+mod frontend;
 
 #[cfg(windows)]
 pub mod platform;

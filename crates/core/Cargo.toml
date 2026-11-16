@@ -1,0 +1,11 @@
+[package]
+name = "ninjutso-battery-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license-file.workspace = true
+repository.workspace = true
+publish = false
+
+# Deliberately no external dependencies, build script, GUI or OS bindings.
+[dependencies]

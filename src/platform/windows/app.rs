@@ -1267,10 +1267,7 @@ fn current_settings() -> Settings {
     APP_STATE
         .get()
         .and_then(|state_lock| state_lock.lock().ok())
-        .map(|state| Settings {
-            show_percent_on_icon: state.model.settings.show_percent_on_icon,
-            language: state.model.settings.language,
-        })
+        .map(|state| state.model.settings)
         .unwrap_or_default()
 }
 

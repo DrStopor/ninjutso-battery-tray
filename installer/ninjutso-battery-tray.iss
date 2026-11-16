@@ -63,6 +63,8 @@ Name: "autostart"; Description: "{cm:AutoStartProgram,{#MyAppName}}"; GroupDescr
 
 [Files]
 Source: "..\target\release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
+Source: "..\THIRD_PARTY_NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"

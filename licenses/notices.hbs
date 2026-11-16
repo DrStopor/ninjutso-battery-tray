@@ -1,0 +1,22 @@
+NINJUTSO BATTERY TRAY - THIRD-PARTY NOTICES
+========================================
+
+Generated with cargo-about 0.9.3 for the locked Windows x64 dependencies,
+including build-time dependencies. Regenerate with tools/update-licenses.ps1.
+
+These components retain their respective licenses below. The application's
+MIT License with Commons Clause terms in LICENSE do not replace or extend
+the licenses of these third-party components.
+
+{{#each licenses}}
+-------------------------------------------------------------------------------
+{{name}} ({{id}})
+
+Used by:
+{{#each used_by}}
+  {{crate.name}} {{crate.version}} - {{#if crate.repository}}{{crate.repository}}{{else}}https://crates.io/crates/{{crate.name}}{{/if}}
+{{/each}}
+
+{{{text}}}
+
+{{/each}}

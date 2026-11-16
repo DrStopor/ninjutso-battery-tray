@@ -54,6 +54,7 @@ fn main() -> io::Result<()> {
 
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=Cargo.toml");
+    println!("cargo:rerun-if-changed=assets/windows/app.manifest.xml");
     println!("cargo:rerun-if-env-changed=RC");
     println!(
         "cargo:rustc-link-arg-bin=ninjutso-battery-tray={}",
@@ -73,8 +74,18 @@ fn resource_script(ico_path: &std::path::Path) -> String {
     ]
     .join(",");
     let icon = ico_path.display().to_string().replace('\\', "\\\\");
+    let manifest = if env::var_os("CARGO_FEATURE_GPUI_UI").is_some() {
+        let path = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap())
+            .join("assets/windows/app.manifest.xml");
+        format!(
+            "1 24 \"{}\"\n",
+            path.display().to_string().replace('\\', "\\\\")
+        )
+    } else {
+        String::new()
+    };
     format!(
-        r#"1 ICON "{icon}"
+        r#"{manifest}1 ICON "{icon}"
 1 VERSIONINFO
 FILEVERSION {numeric_version}
 PRODUCTVERSION {numeric_version}

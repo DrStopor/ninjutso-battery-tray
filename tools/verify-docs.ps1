@@ -10,6 +10,10 @@ $toolchain = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot 'rust-toolchain.
 $rustMatch = [regex]::Match($toolchain, '(?m)^channel\s*=\s*"([^"]+)"')
 if (-not $rustMatch.Success) { throw 'Could not read the pinned Rust version.' }
 $RustVersion = $rustMatch.Groups[1].Value
+$cargo = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot 'Cargo.toml')
+$gpuiMatch = [regex]::Match($cargo, '(?m)^gpui\s*=\s*\{\s*version\s*=\s*"=([^"]+)"')
+if (-not $gpuiMatch.Success) { throw 'Could not read the pinned GPUI version.' }
+$GpuiVersion = $gpuiMatch.Groups[1].Value
 $installer = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot 'installer\ninjutso-battery-tray.iss')
 $innoMatch = [regex]::Match($installer, '#if Ver < EncodeVer\((\d+),\s*(\d+),\s*(\d+)\)')
 if (-not $innoMatch.Success) { throw 'Could not read the minimum Inno Setup version.' }
@@ -20,6 +24,7 @@ $ExpectedBadges = @(
     'https://img.shields.io/github/v/release/DrStopor/ninjutso-battery-tray?display_name=tag&sort=semver&label=release',
     'https://img.shields.io/badge/Windows-x64-0078D4',
     "https://img.shields.io/badge/Rust-$RustVersion-000000?logo=rust&logoColor=white",
+    "https://img.shields.io/badge/GPUI-$GpuiVersion-00b4b6",
     "https://img.shields.io/badge/Inno%20Setup-$InnoVersion%2B-2ea44f",
     'https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-f59e0b'
 )
@@ -41,7 +46,7 @@ foreach ($readme in $Readmes) {
             throw "$($readme): outdated or inconsistent badge: $($badges[$i].Groups[2].Value)"
         }
     }
-    foreach ($pair in @(@(0, $Version), @(3, $RustVersion), @(4, $InnoVersion))) {
+    foreach ($pair in @(@(0, $Version), @(3, $RustVersion), @(4, $GpuiVersion), @(5, $InnoVersion))) {
         if (-not $badges[$pair[0]].Groups[1].Value.Contains($pair[1])) {
             throw "$($readme): outdated badge alternative text."
         }

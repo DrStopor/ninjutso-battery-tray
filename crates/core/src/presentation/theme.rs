@@ -1,4 +1,5 @@
 use super::view::StatusTone;
+use crate::settings::ThemePreference;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Rgb {
@@ -133,7 +134,55 @@ pub struct Theme {
     pub typography: Typography,
 }
 
+/// Shared by native and GPUI menu adapters, without platform color types.
+#[derive(Clone, Copy, Debug)]
+pub struct MenuPalette {
+    pub background: Rgb,
+    pub foreground: Rgb,
+    pub muted: Rgb,
+    pub highlight: Rgb,
+    pub border: Rgb,
+}
+
 impl Theme {
+    pub const fn resolve(preference: ThemePreference, system_is_dark: bool) -> Self {
+        if preference.is_dark(system_is_dark) {
+            Self::FLUENT_DARK
+        } else {
+            Self::LIGHT
+        }
+    }
+
+    pub const fn menu(self) -> MenuPalette {
+        MenuPalette {
+            background: self.flyout.background,
+            foreground: self.flyout.foreground,
+            muted: self.flyout.muted,
+            highlight: self.flyout.badge,
+            border: self.flyout.border,
+        }
+    }
+
+    /// GPUI surfaces follow the OS appearance; tray pixels remain a separate palette.
+    pub const FLUENT_DARK: Self = Self {
+        flyout: FlyoutPalette {
+            background: Rgb::new(25, 28, 33),
+            border: Rgb::new(57, 62, 70),
+            top_edge: Rgb::new(72, 77, 85),
+            foreground: Rgb::new(241, 243, 247),
+            muted: Rgb::new(165, 174, 188),
+            badge: Rgb::new(40, 44, 52),
+            meter_track: Rgb::new(53, 59, 69),
+            healthy: Rgb::new(118, 218, 171),
+            warning: Rgb::new(245, 199, 117),
+            critical: Rgb::new(255, 144, 151),
+            charging: Rgb::new(118, 218, 171),
+            reading: Rgb::new(149, 189, 255),
+            unavailable: Rgb::new(165, 174, 188),
+        },
+        ..Self::DARK
+    };
+
     /// Preserve the shipped appearance while extracting presentation from Win32.
     pub const DARK: Self = Self {
         flyout: FlyoutPalette {
@@ -166,7 +215,7 @@ impl Theme {
         typography: Typography::DEFAULT,
     };
 
-    /// Ready for a theme-aware frontend; the current native shell still uses DARK.
+    /// Light surface for theme-aware frontends. The Win32 fallback uses DARK.
     pub const LIGHT: Self = Self {
         flyout: FlyoutPalette {
             background: Rgb::new(250, 251, 253),

@@ -328,6 +328,8 @@ mod tests {
             online: true,
             charging: true,
             connection: ConnectionKind::Wired,
+            polling_rate: None,
+            dpi: None,
         });
         let first = render_battery_icon_pixels(&status, true, 0, &Theme::DARK);
         assert_eq!(
@@ -371,6 +373,8 @@ mod tests {
                         online,
                         charging,
                         connection: ConnectionKind::Receiver,
+                        polling_rate: None,
+                        dpi: None,
                     }));
                 }
             }

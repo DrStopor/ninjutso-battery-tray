@@ -3,6 +3,46 @@ pub const FLYOUT_WIDTH: i32 = 292;
 pub const FLYOUT_HEIGHT: i32 = 140;
 pub const FLYOUT_CORNER_DIAMETER: i32 = 20;
 
+/// Shared vertical metric axis and a fixed power region.
+/// Current charge, DPI and localized status text must not participate in layout.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ChargeRowLayout {
+    pub dpi_left: f32,
+    pub power_left: f32,
+    pub power_width: f32,
+}
+
+impl ChargeRowLayout {
+    pub const RATE_CENTER: f32 = 134.0;
+
+    pub fn new(content_width: f32, dpi_width: f32) -> Self {
+        let power_width = 104.0;
+        let power_left = content_width - power_width;
+        let dpi_left = (Self::RATE_CENTER - dpi_width / 2.0).round();
+        Self {
+            dpi_left,
+            power_left,
+            power_width,
+        }
+    }
+}
+
+/// Align to the charge's ink edge, preferring the percent midline as a lower
+/// guide. Two readable lines take priority when that recommended height is tight.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DpiBadgeLayout {
+    pub top: f32,
+    pub height: f32,
+}
+
+impl DpiBadgeLayout {
+    pub fn between_guides(charge_top: f32, percent_midline: f32) -> Self {
+        let top = charge_top.ceil();
+        let height = (percent_midline - top).floor().clamp(32.0, 34.0);
+        Self { top, height }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Point {
     pub x: i32,

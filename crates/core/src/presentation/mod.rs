@@ -3,5 +3,6 @@
 pub mod icons;
 pub mod interaction;
 pub mod layout;
+pub mod menu;
 pub mod theme;
 pub mod view;

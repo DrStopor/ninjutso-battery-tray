@@ -22,6 +22,7 @@ $InstallerScript = Join-Path $RepoRoot 'installer\ninjutso-battery-tray.iss'
 New-Item -ItemType Directory -Path $StageDir -Force | Out-Null
 Push-Location $RepoRoot
 try {
+    & (Join-Path $PSScriptRoot 'update-licenses.ps1') -Check
     Invoke-CheckedNative -FilePath cargo -Arguments @('build', '--release', '--locked')
     $binaryVersion = (Get-Item -LiteralPath $ReleaseExe).VersionInfo.ProductVersion
     if ($binaryVersion -ne $Version) {
@@ -44,6 +45,7 @@ try {
     New-Item -ItemType Directory -Path $PortableDir | Out-Null
     Copy-Item -LiteralPath $ReleaseExe -Destination (Join-Path $PortableDir $ExeName)
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'LICENSE') -Destination (Join-Path $PortableDir 'LICENSE.txt')
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'THIRD_PARTY_NOTICES.txt') -Destination (Join-Path $PortableDir 'THIRD_PARTY_NOTICES.txt')
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'CHANGELOG.md') -Destination (Join-Path $PortableDir 'CHANGELOG.md')
     @"
 Ninjutso Battery Tray $Version

@@ -2,22 +2,27 @@
 
 # Ninjutso Battery Tray
 
-[![源码版本 0.2.1](https://img.shields.io/badge/source-v0.2.1-2563eb)](Cargo.toml)
+[![源码版本 0.3.0](https://img.shields.io/badge/source-v0.3.0-2563eb)](Cargo.toml)
 [![最新发布版本](https://img.shields.io/github/v/release/DrStopor/ninjutso-battery-tray?display_name=tag&sort=semver&label=release)](https://github.com/DrStopor/ninjutso-battery-tray/releases/latest)
 ![Windows x64](https://img.shields.io/badge/Windows-x64-0078D4)
 [![Rust 1.100.0](https://img.shields.io/badge/Rust-1.100.0-000000?logo=rust&logoColor=white)](rust-toolchain.toml)
+[![GPUI 0.2.2](https://img.shields.io/badge/GPUI-0.2.2-00b4b6)](https://crates.io/crates/gpui/0.2.2)
 [![Inno Setup 6.7.4+](https://img.shields.io/badge/Inno%20Setup-6.7.4%2B-2ea44f)](installer/ninjutso-battery-tray.iss)
 [![MIT 与 Commons Clause](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-f59e0b)](LICENSE)
 
 一款专注、轻量的 Windows 托盘工具，无需打开完整的配套软件，即可随时查看 Ninjutso Ten 的电量。
 
-![Ninjutso Battery Tray 简体中文状态浮窗：Ninjutso Ten 通过 USB 连接并正在充电，电量为 100%](docs/assets/screenshots/flyout.zh-CN.png)
+![简体中文 GPUI 状态卡片：电量 72%，USB 充电，1000 Hz, 1100 DPI](docs/assets/screenshots/flyout.zh-CN.png)
+
+截图使用演示数据；运行中的应用读取您的鼠标电量。
 
 ## 功能亮点
 
 - **托盘内直接显示精确电量。** 高对比度数字在通知区域的实际图标尺寸下依然清晰。
 - **同时支持接收器和有线 USB。** 无论通过无线接收器连接，还是使用 USB 为鼠标充电，都能读取电量。
-- **简洁紧凑的状态卡片。** 左键单击即可查看电量百分比、连接方式、充电状态和连接状态。
+- **紧凑的 GPUI 状态卡片。** 304 × 156 逻辑像素布局、清晰的矢量图标，自动跟随 Windows 明暗主题并实时更新连接状态。
+- **设备名称旁的轮询率。** 描边徽标显示从鼠标读取的当前配置文件轮询率；读取不到时隐藏徽标，不影响电量显示。
+- **独立 DPI 徽标。** 双行描边徽标位于电量与供电状态之间：上方显示较大的 `DPI`，下方数值右对齐且不超出标签宽度；读取不到时隐藏。
 - **自动与手动刷新。** 电量每分钟自动更新，也可从托盘菜单立即刷新。
 - **本地且注重隐私。** 无云服务、无需账户、不访问网络、无遥测。
 - **单实例保护。** 再次启动应用不会产生重复的托盘图标。
@@ -46,18 +51,19 @@ Ninjutso Battery Tray 目前支持 **Ninjutso Ten** 的以下连接方式：
 
 ## 使用方法
 
-左键单击托盘图标可打开状态卡片。再次单击图标、单击卡片外部或按下 `Esc` 均可关闭卡片；单击卡片内部不会将其关闭。卡片保持显示时会自动刷新，无需重新打开即可呈现 USB、接收器和鼠标断开连接之间的变化。
+左键单击托盘图标可打开卡片。点击 ×、按下 `Esc`、再次点击图标或点击卡片外部均可关闭；点击状态内容则保持打开。卡片显示时每秒刷新数据，无需重新打开即可查看 USB、接收器、充电与断开连接的变化。
 
 右键单击图标可打开菜单：
 
 - **刷新** — 重新读取电量；
 - **显示电量百分比** — 在数字图标和图形图标之间切换；
 - **语言** — 更改界面语言；
+- **主题** — 跟随系统、浅色或深色；
 - **退出** — 关闭应用。
 
 在数字模式下，边框颜色表示电量区间：绿色为 50–100%，琥珀色为 20–49%，红色为 0–19%。准确的充电和连接状态始终可在状态卡片和工具提示中查看。
 
-所选语言和图标模式会自动保存。
+所选语言、图标模式和主题都会自动保存。状态卡片与托盘菜单（包括子菜单）使用相同主题。“跟随系统”使用 Windows 应用主题；“浅色”和“深色”可独立于系统设置立即生效，无需重启。
 
 ## 语言
 
@@ -91,20 +97,41 @@ Ninjutso Battery Tray 目前支持 **Ninjutso Ten** 的以下连接方式：
 
 可根据 [LICENSE](LICENSE) 中的条款使用、复制、修改和再分发源代码。Commons Clause 禁止出售本工具本身，或出售其主要价值实质上来自本工具的产品或服务。因此本项目属于 source-available，而非 OSI 定义下的开源软件。
 
+GPUI 等第三方组件保留各自的许可证，详见 [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt)。
+
 <details>
 <summary><strong>从源代码构建</strong></summary>
 
 环境要求：
 
-- Windows；
+- Windows x64；GPUI 界面使用 DirectX 11；
+- MSVC C++ Build Tools；
 - Rust 1.100.0 和 Cargo，版本由 [rust-toolchain.toml](rust-toolchain.toml) 固定；
-- 带 `rc.exe` 的 Windows SDK，用于将图标嵌入可执行文件；
+- 带 `rc.exe` 和 `fxc.exe`（release 着色器编译器）的 Windows SDK；
 - Inno Setup 6.7.4 或更高版本，用于构建安装程序。
 
 ```powershell
-cargo test
+cargo test --workspace
 cargo build --release
 ```
+
+跨平台逻辑位于[核心包](crates/core/Cargo.toml)中，不依赖外部库，并禁止使用 unsafe 代码。运行 `cargo test -p ninjutso-battery-core` 可在 Windows 或 Linux 上单独测试核心；Linux 桌面应用尚未实现。
+
+首次构建 GPUI 会下载更多依赖。如果 PATH 中没有 `fxc.exe`，请通过 `GPUI_FXC_PATH` 设置完整路径。打包与验证脚本也会自动检测已安装的 SDK。
+
+此前的 Win32 界面仍可作为备用版本构建：
+
+```powershell
+cargo build --no-default-features --target-dir target/native
+```
+
+运行界面检查并生成五种语言的可复现预览：
+
+```powershell
+.\tools\smoke-ui.ps1
+```
+
+修改依赖后，请安装带 `--features cli` 的 `cargo-about 0.9.3`，然后运行 [tools/update-licenses.ps1](tools/update-licenses.ps1) 更新许可证通知。普通构建与打包使用仓库中的通知文件，无需此工具。
 
 构建全部发布文件：
 
