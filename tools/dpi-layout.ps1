@@ -4,8 +4,13 @@ function Assert-DpiScreenshot([string]$Path, [bool]$Expected, [int]$Percent = -1
     try {
         $scale = $bitmap.Width / 304.0
         $background = $bitmap.GetPixel([int](8*$scale), [int](40*$scale))
-        $dark = $background.R -lt 128
-        $border = if ($dark) { [Drawing.Color]::FromArgb(57,62,70) } else { [Drawing.Color]::FromArgb(213,219,227) }
+        $backgroundHex = '{0:x2}{1:x2}{2:x2}' -f $background.R,$background.G,$background.B
+        $border = switch ($backgroundHex) {
+            '191c21' { [Drawing.Color]::FromArgb(57,62,70) }
+            'fafbfd' { [Drawing.Color]::FromArgb(213,219,227) }
+            'c3bddb' { [Drawing.Color]::FromArgb(155,148,196) }
+            default { throw "Unknown card palette: $backgroundHex" }
+        }
         $left = [int](74*$scale); $right = [int](246*$scale)
         $top = [int](48*$scale); $bottom = [int](107*$scale)
         $edges = [Collections.Generic.List[int]]::new()

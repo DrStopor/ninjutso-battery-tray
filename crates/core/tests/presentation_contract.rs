@@ -421,11 +421,16 @@ fn theme_menu_labels_exist_and_are_distinct_in_every_language() {
     for language in Language::ALL {
         let strings = language.strings();
         assert!(!strings.theme.is_empty());
-        let labels = [strings.theme_auto, strings.theme_light, strings.theme_dark];
+        let labels = [
+            strings.theme_auto,
+            strings.theme_light,
+            strings.theme_dark,
+            strings.theme_ninjaforce,
+        ];
         assert!(labels.iter().all(|label| !label.is_empty()));
-        assert_ne!(labels[0], labels[1]);
-        assert_ne!(labels[1], labels[2]);
-        assert_ne!(labels[0], labels[2]);
+        for (index, label) in labels.iter().enumerate() {
+            assert!(!labels[..index].contains(label));
+        }
     }
 }
 
@@ -447,9 +452,25 @@ fn all_palettes_keep_primary_secondary_and_tray_text_readable() {
         let b = luminance(b);
         (a.max(b) + 0.05) / (a.min(b) + 0.05)
     }
-    for theme in [Theme::DARK, Theme::LIGHT, Theme::FLUENT_DARK] {
+    for theme in [
+        Theme::DARK,
+        Theme::LIGHT,
+        Theme::FLUENT_DARK,
+        Theme::NINJAFORCE,
+    ] {
         assert!(contrast(theme.flyout.foreground, theme.flyout.background) >= 4.5);
         assert!(contrast(theme.flyout.muted, theme.flyout.background) >= 4.5);
+        for tone in [
+            StatusTone::Healthy,
+            StatusTone::Warning,
+            StatusTone::Critical,
+            StatusTone::Charging,
+            StatusTone::Reading,
+            StatusTone::Unavailable,
+            StatusTone::Error,
+        ] {
+            assert!(contrast(theme.flyout.accent(tone), theme.flyout.background) >= 3.0);
+        }
         let menu = theme.menu();
         assert!(contrast(menu.foreground, menu.background) >= 4.5);
         assert!(contrast(menu.foreground, menu.highlight) >= 4.5);
@@ -465,14 +486,31 @@ fn menu_and_card_resolve_the_same_preference_without_platform_dependencies() {
     for system_dark in [false, true] {
         for preference in ThemePreference::ALL {
             let theme = Theme::resolve(preference, system_dark);
-            let expected = if preference.is_dark(system_dark) {
-                Theme::FLUENT_DARK
-            } else {
-                Theme::LIGHT
+            let expected = match preference {
+                ThemePreference::NinjaForce => Theme::NINJAFORCE,
+                ThemePreference::Auto if system_dark => Theme::FLUENT_DARK,
+                ThemePreference::Dark => Theme::FLUENT_DARK,
+                ThemePreference::Auto | ThemePreference::Light => Theme::LIGHT,
             };
             assert_eq!(theme.flyout.background, expected.flyout.background);
             assert_eq!(theme.menu().background, theme.flyout.background);
             assert_eq!(theme.menu().foreground, theme.flyout.foreground);
         }
+    }
+}
+
+#[test]
+fn ninjaforce_preserves_the_companion_palette_without_changing_the_tray_contrast() {
+    for system_dark in [false, true] {
+        let theme = Theme::resolve(ThemePreference::NinjaForce, system_dark);
+        assert_eq!(theme.flyout.background, Rgb::new(195, 189, 219));
+        assert_eq!(theme.flyout.foreground, Rgb::new(30, 34, 170));
+        assert_ne!(
+            theme.flyout.background,
+            Theme::FLUENT_DARK.flyout.background
+        );
+        assert_ne!(theme.flyout.background, Theme::LIGHT.flyout.background);
+        assert_eq!(theme.tray.foreground, Theme::DARK.tray.foreground);
+        assert_eq!(theme.tray.numeric_surface, Theme::DARK.tray.numeric_surface);
     }
 }

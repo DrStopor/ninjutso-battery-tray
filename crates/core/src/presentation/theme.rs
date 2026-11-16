@@ -146,10 +146,11 @@ pub struct MenuPalette {
 
 impl Theme {
     pub const fn resolve(preference: ThemePreference, system_is_dark: bool) -> Self {
-        if preference.is_dark(system_is_dark) {
-            Self::FLUENT_DARK
-        } else {
-            Self::LIGHT
+        match preference {
+            ThemePreference::Auto if system_is_dark => Self::FLUENT_DARK,
+            ThemePreference::Auto | ThemePreference::Light => Self::LIGHT,
+            ThemePreference::Dark => Self::FLUENT_DARK,
+            ThemePreference::NinjaForce => Self::NINJAFORCE,
         }
     }
 
@@ -179,6 +180,29 @@ impl Theme {
             charging: Rgb::new(118, 218, 171),
             reading: Rgb::new(149, 189, 255),
             unavailable: Rgb::new(165, 174, 188),
+        },
+        ..Self::DARK
+    };
+
+    /// NinjaForce 1.0.8 uses #1E22AA for selected text and controls, with lilac
+    /// translucent panels. Lift the surface luminance for readable small labels
+    /// and flatten overlays into shared tokens rather than copying assets.
+    /// Tray pixels stay independent of the card theme for taskbar readability.
+    pub const NINJAFORCE: Self = Self {
+        flyout: FlyoutPalette {
+            background: Rgb::new(195, 189, 219),
+            border: Rgb::new(155, 148, 196),
+            top_edge: Rgb::new(231, 226, 241),
+            foreground: Rgb::new(30, 34, 170),
+            muted: Rgb::new(72, 65, 120),
+            badge: Rgb::new(216, 210, 231),
+            meter_track: Rgb::new(170, 161, 202),
+            healthy: Rgb::new(30, 34, 170),
+            warning: Rgb::new(134, 83, 0),
+            critical: Rgb::new(168, 47, 70),
+            charging: Rgb::new(24, 97, 71),
+            reading: Rgb::new(59, 79, 149),
+            unavailable: Rgb::new(105, 96, 129),
         },
         ..Self::DARK
     };

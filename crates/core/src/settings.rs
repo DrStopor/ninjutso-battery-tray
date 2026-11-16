@@ -6,16 +6,18 @@ pub enum ThemePreference {
     Auto,
     Light,
     Dark,
+    NinjaForce,
 }
 
 impl ThemePreference {
-    pub const ALL: [Self; 3] = [Self::Auto, Self::Light, Self::Dark];
+    pub const ALL: [Self; 4] = [Self::Auto, Self::Light, Self::Dark, Self::NinjaForce];
 
     pub const fn code(self) -> &'static str {
         match self {
             Self::Auto => "auto",
             Self::Light => "light",
             Self::Dark => "dark",
+            Self::NinjaForce => "ninjaforce",
         }
     }
 
@@ -28,7 +30,7 @@ impl ThemePreference {
     pub const fn is_dark(self, system_is_dark: bool) -> bool {
         match self {
             Self::Auto => system_is_dark,
-            Self::Light => false,
+            Self::Light | Self::NinjaForce => false,
             Self::Dark => true,
         }
     }
@@ -148,7 +150,7 @@ mod tests {
             for system_dark in [false, true] {
                 let expected = match theme {
                     ThemePreference::Auto => system_dark,
-                    ThemePreference::Light => false,
+                    ThemePreference::Light | ThemePreference::NinjaForce => false,
                     ThemePreference::Dark => true,
                 };
                 assert_eq!(theme.is_dark(system_dark), expected);
@@ -159,6 +161,10 @@ mod tests {
             Some(ThemePreference::Light)
         );
         assert_eq!(ThemePreference::from_code("unknown"), None);
+        assert_eq!(
+            ThemePreference::from_code(" NinjaForce "),
+            Some(ThemePreference::NinjaForce)
+        );
     }
 
     #[test]

@@ -67,6 +67,7 @@ pub fn tray_menu(settings: Settings) -> Vec<MenuEntry> {
                         ThemePreference::Auto => strings.theme_auto,
                         ThemePreference::Light => strings.theme_light,
                         ThemePreference::Dark => strings.theme_dark,
+                        ThemePreference::NinjaForce => strings.theme_ninjaforce,
                     },
                     command: MenuCommand::SetTheme(theme),
                     mark: MenuMark::Radio(theme == settings.theme),

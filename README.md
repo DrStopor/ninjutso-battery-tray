@@ -58,12 +58,12 @@ Right-click the icon to open the menu:
 - **Refresh** — read the battery again;
 - **Show percentage** — switch between the numeric and graphical tray icons;
 - **Language** — change the interface language;
-- **Theme** — Auto (follow Windows), Light, or Dark;
+- **Theme** — Auto (follow Windows), Light, Dark, or NinjaForce;
 - **Exit** — close the app.
 
 In numeric mode, the colored edge communicates the battery range: green for 50–100%, amber for 20–49%, and red for 0–19%. The exact charging and connection states remain available in the flyout and tooltip.
 
-The selected language, icon mode, and theme are saved automatically. The card and tray menu, including submenus, share the same theme. Auto follows the Windows app appearance; explicit Light or Dark choices override it without restarting.
+The selected language, icon mode, and theme are saved automatically. The card and tray menu, including submenus, share the same theme. Auto follows the Windows app appearance; Light, Dark, and NinjaForce apply independently without restarting. NinjaForce pairs a light lilac surface with the companion app's blue text and control accents, keeping small labels readable and battery warnings distinct. The tray icon retains its high-contrast colors in every theme.
 
 ## Languages
 

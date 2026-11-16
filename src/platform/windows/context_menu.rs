@@ -500,10 +500,18 @@ mod tests {
             LANGUAGE_FIRST - 1,
             LANGUAGE_FIRST + 5,
             THEME_FIRST - 1,
-            THEME_FIRST + 3,
+            THEME_FIRST + ThemePreference::ALL.len() as u32,
             u32::MAX,
         ] {
             assert_eq!(command_from_id(id), None);
+        }
+        for (theme, id) in [
+            (ThemePreference::Auto, 1200),
+            (ThemePreference::Light, 1201),
+            (ThemePreference::Dark, 1202),
+            (ThemePreference::NinjaForce, 1203),
+        ] {
+            assert_eq!(command_id(MenuCommand::SetTheme(theme)), id);
         }
     }
 }

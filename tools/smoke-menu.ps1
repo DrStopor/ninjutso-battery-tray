@@ -135,7 +135,7 @@ foreach ($language in $Languages) {
     try {
         $hostWindow=Find-TrayHost $preview
         Start-Sleep -Milliseconds 500
-        foreach ($choice in @(@('light',1201,'fafbfd'),@('dark',1202,'191c21'),@('auto',1200,$autoColor))) {
+        foreach ($choice in @(@('light',1201,'fafbfd'),@('dark',1202,'191c21'),@('auto',1200,$autoColor),@('ninjaforce',1203,'c3bddb'))) {
             [void][TrayMenuSmoke]::PostMessageW($hostWindow,0x111,[IntPtr]$choice[1],[IntPtr]::Zero)
             Start-Sleep -Milliseconds 120
             $menuWindow=Open-TrayMenu $hostWindow $preview.Id
@@ -148,6 +148,8 @@ foreach ($language in $Languages) {
                 }
             }
             $themeMenu=[TrayMenuSmoke]::GetSubMenu($rootMenu,3)
+            if ([TrayMenuSmoke]::GetMenuItemCount($themeMenu) -ne 4) { throw 'Theme choices are missing.' }
+            if ([TrayMenuSmoke]::Label($themeMenu,3) -ne 'NinjaForce') { throw 'NinjaForce label is missing.' }
             if (([TrayMenuSmoke]::GetMenuState($themeMenu,$choice[1],0) -band 8) -eq 0) { throw 'Selected theme has no radio mark.' }
             # Native TrackPopupMenu does not interpret Home/End consistently.
             Send-MenuKey $hostWindow 0x28 # Down selects the first item
@@ -157,7 +159,7 @@ foreach ($language in $Languages) {
             Send-MenuKey $hostWindow 0x27 # Right opens Theme
             $windows=@(Wait-Popups $preview.Id 2)
             $submenu=@($windows | Where-Object { $_ -ne $menuWindow })[0]
-            if ([TrayMenuSmoke]::GetMenuItemCount([TrayMenuSmoke]::Menu($submenu)) -ne 3) { throw 'Keyboard opened the wrong submenu.' }
+            if ([TrayMenuSmoke]::GetMenuItemCount([TrayMenuSmoke]::Menu($submenu)) -ne 4) { throw 'Keyboard opened the wrong submenu.' }
             Assert-MenuFrame $submenu $choice[2] "$language.$($choice[0]).themes"
             Send-MenuKey $hostWindow 0x1b # Escape closes only the submenu
             $null=Wait-Popups $preview.Id 1
@@ -170,19 +172,20 @@ foreach ($language in $Languages) {
             Send-MenuKey $hostWindow 0x1b
             $null=Wait-Popups $preview.Id 0
         }
-        # Choose Dark through the real submenu, not a synthetic WM_COMMAND.
+        # Choose NinjaForce through the real submenu, not a synthetic WM_COMMAND.
         $menuWindow=Open-TrayMenu $hostWindow $preview.Id
         1..4 | ForEach-Object { Send-MenuKey $hostWindow 0x28 }
         Send-MenuKey $hostWindow 0x27
         $null=Wait-Popups $preview.Id 2
         Send-MenuKey $hostWindow 0x28 # Auto -> Light
         Send-MenuKey $hostWindow 0x28 # Light -> Dark
+        Send-MenuKey $hostWindow 0x28 # Dark -> NinjaForce
         Send-MenuKey $hostWindow 13
         $null=Wait-Popups $preview.Id 0
         $menuWindow=Open-TrayMenu $hostWindow $preview.Id
-        Assert-MenuFrame $menuWindow '191c21' "$language.dark-selected"
+        Assert-MenuFrame $menuWindow 'c3bddb' "$language.ninjaforce-selected"
         $themeMenu=[TrayMenuSmoke]::GetSubMenu([TrayMenuSmoke]::Menu($menuWindow),3)
-        if (([TrayMenuSmoke]::GetMenuState($themeMenu,1202,0) -band 8) -eq 0) { throw 'Keyboard selection did not apply Dark.' }
+        if (([TrayMenuSmoke]::GetMenuState($themeMenu,1203,0) -band 8) -eq 0) { throw 'Keyboard selection did not apply NinjaForce.' }
         Send-MenuKey $hostWindow 0x1b
         $null=Wait-Popups $preview.Id 0
         $resourcesBefore=[TrayMenuSmoke]::GetGuiResources($preview.Handle,0)
@@ -195,7 +198,7 @@ foreach ($language in $Languages) {
         if ($resourcesAfter -gt $resourcesBefore+2) { throw "Menu leaked GDI handles: $resourcesBefore -> $resourcesAfter" }
         # Also verify graceful shutdown from inside the native modal menu loop.
         $null=Open-TrayMenu $hostWindow $preview.Id
-        Write-Host "Menu passed ($language): Auto/Light/Dark, both submenus, labels/radio state, keyboard selection, GDI handles $resourcesBefore -> $resourcesAfter."
+        Write-Host "Menu passed ($language): Auto/Light/Dark/NinjaForce, both submenus, labels/radio state, keyboard selection, GDI handles $resourcesBefore -> $resourcesAfter."
     } finally {
         if (-not $preview.HasExited) {
             $hostWindow=Find-TrayHost $preview

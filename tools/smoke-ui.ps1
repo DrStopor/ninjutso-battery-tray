@@ -3,7 +3,7 @@ param(
     [switch]$SkipBuild,
     [string]$CaptureDirectory = 'target\verification\gpui',
     [ValidateSet('en', 'ru', 'be', 'kk', 'zh-CN')][string[]]$Languages = @('en', 'ru', 'be', 'kk', 'zh-CN'),
-    [ValidateSet('auto', 'dark', 'light')][string]$Theme = 'dark',
+    [ValidateSet('auto', 'dark', 'light', 'ninjaforce')][string]$Theme = 'dark',
     [ValidateSet('charging', 'ready', 'offline', 'missing', 'error', 'reading')][string]$State = 'charging',
     [ValidateRange(0, 100)][int]$Percent = 72,
     [ValidateSet('usb', 'receiver')][string]$Connection = 'usb',
@@ -115,7 +115,8 @@ function Save-Card([IntPtr]$Window, [string]$Path) {
                     $pixel=$bitmap.GetPixel($x,$y)
                     [void]$colors.Add($pixel.ToArgb())
                     if (($pixel.R -eq 25 -and $pixel.G -eq 28 -and $pixel.B -eq 33) -or
-                        ($pixel.R -eq 250 -and $pixel.G -eq 251 -and $pixel.B -eq 253)) { $surfacePixels++ }
+                        ($pixel.R -eq 250 -and $pixel.G -eq 251 -and $pixel.B -eq 253) -or
+                        ($pixel.R -eq 195 -and $pixel.G -eq 189 -and $pixel.B -eq 219)) { $surfacePixels++ }
                 }
             }
             # A visible HWND is not proof of a composited GPUI frame. Reject blank
@@ -291,7 +292,7 @@ if ($CheckThemePersistence) {
         $card = Wait-Card $themeApp
         $hostWindow = Get-HostWindow $themeApp.Id
         [void][GpuiSmoke]::PostMessageW($hostWindow, 0x111, [IntPtr]1002, [IntPtr]::Zero)
-        foreach ($choice in @(@('dark',1202,'191c21'), @('light',1201,'fafbfd'), @('auto',1200,$autoColor))) {
+        foreach ($choice in @(@('dark',1202,'191c21'), @('light',1201,'fafbfd'), @('auto',1200,$autoColor), @('ninjaforce',1203,'c3bddb'))) {
             Set-TestTheme $hostWindow $choice[0] $choice[1]
             Assert-ThemeFrame $card $choice[2] $choice[0]
             if ((Get-CardWindow $themeApp.Id) -ne $card) { throw 'Theme selection replaced the existing card.' }
@@ -299,14 +300,14 @@ if ($CheckThemePersistence) {
                 throw 'Theme selection overwrote another preference.'
             }
         }
-        Set-TestTheme $hostWindow 'light' 1201
-        Assert-ThemeFrame $card 'fafbfd' 'light-before-restart'
+        Set-TestTheme $hostWindow 'ninjaforce' 1203
+        Assert-ThemeFrame $card 'c3bddb' 'ninjaforce-before-restart'
     } finally { Stop-Preview $themeApp }
 
     $themeApp = Start-ThemeTestApp
     try {
         $card = Wait-Card $themeApp
-        Assert-ThemeFrame $card 'fafbfd' 'light-after-restart'
-        Write-Host 'Theme smoke passed: Auto/Light/Dark redraw one window, preserve other settings, and persist after restart; owner APPDATA unchanged.'
+        Assert-ThemeFrame $card 'c3bddb' 'ninjaforce-after-restart'
+        Write-Host 'Theme smoke passed: Auto/Light/Dark/NinjaForce redraw one window, preserve other settings, and NinjaForce persists after restart; owner APPDATA unchanged.'
     } finally { Stop-Preview $themeApp }
 }

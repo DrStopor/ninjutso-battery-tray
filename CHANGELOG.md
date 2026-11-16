@@ -13,6 +13,7 @@
 
 ### Added
 
+- Add a fourth NinjaForce theme with light lilac surfaces and blue text/control accents inspired by the companion app; apply it to the card and native tray menus, persist the choice, and keep labels, status warnings and tray digits readable.
 - Read the active DPI stage from the mouse and show it in a dedicated two-line outlined badge between the charge and power status, without increasing the flyout size; unavailable or invalid DPI never hides battery or polling-rate data.
 - Size the numeric DPI reading within its larger uppercase caption and align it right; use glyph measurements for charge-top alignment and pixel checks for both themes and all five locales.
 - Keep DPI geometry and typography fixed on the polling-rate badge's vertical axis, with a reserved right-aligned power-status column; single-digit/100% readings and localized status changes never move the badge.
