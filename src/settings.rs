@@ -1,10 +1,6 @@
-use std::env;
-use std::fs;
-use std::path::PathBuf;
-
 use crate::i18n::Language;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Settings {
     pub show_percent_on_icon: bool,
     pub language: Language,
@@ -14,41 +10,24 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             show_percent_on_icon: true,
-            language: Language::system_default(),
+            language: Language::English,
         }
     }
 }
 
-pub fn load() -> Settings {
-    let default = Settings::default();
-    let Some(path) = path() else {
-        return default;
-    };
-    let Ok(text) = fs::read_to_string(path) else {
-        return default;
-    };
-
-    parse(&text, default)
-}
-
-pub fn save(settings: Settings) -> Result<(), String> {
-    let path = path().ok_or_else(|| "APPDATA is not available".to_string())?;
-
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|err| format!("Could not create the settings directory: {err}"))?;
+impl Settings {
+    /// The platform supplies the user's default language on first launch.
+    pub fn parse(text: &str, defaults: Self) -> Self {
+        parse(text, defaults)
     }
 
-    let show_percent = if settings.show_percent_on_icon {
-        "true"
-    } else {
-        "false"
-    };
-    let text = format!(
-        "large_icon_percent={show_percent}\nlanguage={}\n",
-        settings.language.code()
-    );
-    fs::write(path, text).map_err(|err| format!("Could not save settings: {err}"))
+    pub fn serialize(self) -> String {
+        format!(
+            "large_icon_percent={}\nlanguage={}\n",
+            self.show_percent_on_icon,
+            self.language.code()
+        )
+    }
 }
 
 fn parse(text: &str, mut settings: Settings) -> Settings {
@@ -82,14 +61,6 @@ fn parse_bool(value: &str) -> Option<bool> {
     } else {
         None
     }
-}
-
-fn path() -> Option<PathBuf> {
-    env::var_os("APPDATA").map(|appdata| {
-        PathBuf::from(appdata)
-            .join("NinjutsoBatteryTray")
-            .join("settings.txt")
-    })
 }
 
 #[cfg(test)]

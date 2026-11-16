@@ -1,7 +1,8 @@
 [package]
 name = "ninjutso-battery-tray"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
+rust-version = "1.100"
 license-file = "LICENSE"
 repository = "https://github.com/DrStopor/ninjutso-battery-tray"
 

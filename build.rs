@@ -49,22 +49,61 @@ fn main() -> io::Result<()> {
         .collect::<Vec<_>>();
 
     fs::write(&ico_path, build_ico_file(&images))?;
-    fs::write(
-        &rc_path,
-        format!(
-            "1 ICON \"{}\"\n",
-            ico_path.display().to_string().replace('\\', "\\\\")
-        ),
-    )?;
+    fs::write(&rc_path, resource_script(&ico_path))?;
     compile_resource(&rc_path, &res_path)?;
 
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=Cargo.toml");
+    println!("cargo:rerun-if-env-changed=RC");
     println!(
         "cargo:rustc-link-arg-bin=ninjutso-battery-tray={}",
         res_path.display()
     );
 
     Ok(())
+}
+
+fn resource_script(ico_path: &std::path::Path) -> String {
+    let version = env::var("CARGO_PKG_VERSION").expect("Cargo provides the package version");
+    let numeric_version = [
+        env::var("CARGO_PKG_VERSION_MAJOR").unwrap(),
+        env::var("CARGO_PKG_VERSION_MINOR").unwrap(),
+        env::var("CARGO_PKG_VERSION_PATCH").unwrap(),
+        "0".to_string(),
+    ]
+    .join(",");
+    let icon = ico_path.display().to_string().replace('\\', "\\\\");
+    format!(
+        r#"1 ICON "{icon}"
+1 VERSIONINFO
+FILEVERSION {numeric_version}
+PRODUCTVERSION {numeric_version}
+FILEFLAGSMASK 0x3fL
+FILEFLAGS 0x0L
+FILEOS 0x40004L
+FILETYPE 0x1L
+FILESUBTYPE 0x0L
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904b0"
+    BEGIN
+      VALUE "CompanyName", "drstopor\0"
+      VALUE "FileDescription", "Ninjutso Battery Tray\0"
+      VALUE "FileVersion", "{version}\0"
+      VALUE "InternalName", "ninjutso-battery-tray\0"
+      VALUE "OriginalFilename", "ninjutso-battery-tray.exe\0"
+      VALUE "ProductName", "Ninjutso Battery Tray\0"
+      VALUE "ProductVersion", "{version}\0"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x0409, 1200
+  END
+END
+"#
+    )
 }
 
 fn compile_resource(rc_path: &PathBuf, res_path: &PathBuf) -> io::Result<()> {

@@ -2,11 +2,12 @@
 
 # Ninjutso Battery Tray
 
+[![Версія зыходнага кода 0.2.1](https://img.shields.io/badge/source-v0.2.1-2563eb)](Cargo.toml)
 [![Апошні выпуск](https://img.shields.io/github/v/release/DrStopor/ninjutso-battery-tray?display_name=tag&sort=semver&label=release)](https://github.com/DrStopor/ninjutso-battery-tray/releases/latest)
-![Windows](https://img.shields.io/badge/Windows-tray-0078D4?logo=windows11)
-[![Rust 2024](https://img.shields.io/badge/Rust-2024-000000?logo=rust)](Cargo.toml)
-[![Усталёўшчык](https://img.shields.io/badge/installer-Inno%20Setup-2ea44f)](installer/ninjutso-battery-tray.iss)
-[![Ліцэнзія](https://img.shields.io/badge/license-source--available-f59e0b)](LICENSE)
+![Windows x64](https://img.shields.io/badge/Windows-x64-0078D4)
+[![Rust 1.100.0](https://img.shields.io/badge/Rust-1.100.0-000000?logo=rust&logoColor=white)](rust-toolchain.toml)
+[![Inno Setup 6.7.4+](https://img.shields.io/badge/Inno%20Setup-6.7.4%2B-2ea44f)](installer/ninjutso-battery-tray.iss)
+[![MIT з Commons Clause](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-f59e0b)](LICENSE)
 
 Акуратная ўтыліта для Windows, з якой зарад Ninjutso Ten заўсёды навідавоку — без неабходнасці адкрываць паўнавартасную праграму вытворцы.
 
@@ -96,9 +97,9 @@
 Патрабаванні:
 
 - Windows;
-- набор інструментаў Rust з Cargo;
+- Rust 1.100.0 з Cargo; версія замацавана ў [rust-toolchain.toml](rust-toolchain.toml);
 - Windows SDK з `rc.exe` для ўбудавання значка ў выканальны файл;
-- Inno Setup 6 для зборкі ўсталёўшчыка.
+- Inno Setup 6.7.4 або навейшы для зборкі ўсталёўшчыка.
 
 ```powershell
 cargo test
@@ -112,5 +113,7 @@ cargo build --release
 ```
 
 Выканальны файл з’явіцца ў `target\release\ninjutso-battery-tray.exe`, а гатовыя пакеты — у `dist`. Апісанне HID-пратаколу для распрацоўшчыкаў знаходзіцца ў [docs/hid-protocol.md](docs/hid-protocol.md), гісторыя змен — у [CHANGELOG.md](CHANGELOG.md).
+
+Поўная праверка праз [tools/verify.ps1](tools/verify.ps1) таксама правярае версіі, значкі і лакальныя спасылкі ва ўсіх README.
 
 </details>

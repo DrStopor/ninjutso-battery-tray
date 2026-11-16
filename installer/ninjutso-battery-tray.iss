@@ -3,8 +3,15 @@
 #define MyAppExeName "ninjutso-battery-tray.exe"
 #define MyAppRunName "NinjutsoBatteryTray"
 
+#if Ver < EncodeVer(6, 7, 4)
+#error Inno Setup 6.7.4 or newer is required.
+#endif
+
 #ifndef MyAppVersion
-#define MyAppVersion "0.2.0"
+#define MyAppVersion GetStringFileInfo("..\target\release\" + MyAppExeName, "ProductVersion")
+#if MyAppVersion == ""
+#error Build the release executable before compiling the installer.
+#endif
 #endif
 
 [Setup]
@@ -25,6 +32,7 @@ LanguageDetectionMethod=uilanguage
 ShowLanguageDialog=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
+ArchitecturesAllowed=x64compatible
 CloseApplications=yes
 RestartApplications=no
 UninstallDisplayIcon={app}\{#MyAppExeName}

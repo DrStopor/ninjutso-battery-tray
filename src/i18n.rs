@@ -53,12 +53,7 @@ impl Language {
         }
     }
 
-    pub fn system_default() -> Self {
-        let lang_id = unsafe { GetUserDefaultUILanguage() };
-        Self::from_windows_lang_id(lang_id)
-    }
-
-    fn from_windows_lang_id(lang_id: u16) -> Self {
+    pub fn from_windows_lang_id(lang_id: u16) -> Self {
         const LANG_CHINESE_SIMPLIFIED: u16 = 0x0804;
         const LANG_CHINESE_SINGAPORE: u16 = 0x1004;
 
@@ -194,11 +189,6 @@ pub struct Strings {
     pub read_failed: &'static str,
     pub read_failed_help: &'static str,
     pub already_running: &'static str,
-}
-
-#[link(name = "kernel32")]
-unsafe extern "system" {
-    fn GetUserDefaultUILanguage() -> u16;
 }
 
 #[cfg(test)]

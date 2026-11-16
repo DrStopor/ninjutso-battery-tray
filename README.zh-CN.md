@@ -2,11 +2,12 @@
 
 # Ninjutso Battery Tray
 
-[![最新版本](https://img.shields.io/github/v/release/DrStopor/ninjutso-battery-tray?display_name=tag&sort=semver&label=release)](https://github.com/DrStopor/ninjutso-battery-tray/releases/latest)
-![Windows](https://img.shields.io/badge/Windows-tray-0078D4?logo=windows11)
-[![Rust 2024](https://img.shields.io/badge/Rust-2024-000000?logo=rust)](Cargo.toml)
-[![安装程序](https://img.shields.io/badge/installer-Inno%20Setup-2ea44f)](installer/ninjutso-battery-tray.iss)
-[![许可证](https://img.shields.io/badge/license-source--available-f59e0b)](LICENSE)
+[![源码版本 0.2.1](https://img.shields.io/badge/source-v0.2.1-2563eb)](Cargo.toml)
+[![最新发布版本](https://img.shields.io/github/v/release/DrStopor/ninjutso-battery-tray?display_name=tag&sort=semver&label=release)](https://github.com/DrStopor/ninjutso-battery-tray/releases/latest)
+![Windows x64](https://img.shields.io/badge/Windows-x64-0078D4)
+[![Rust 1.100.0](https://img.shields.io/badge/Rust-1.100.0-000000?logo=rust&logoColor=white)](rust-toolchain.toml)
+[![Inno Setup 6.7.4+](https://img.shields.io/badge/Inno%20Setup-6.7.4%2B-2ea44f)](installer/ninjutso-battery-tray.iss)
+[![MIT 与 Commons Clause](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-f59e0b)](LICENSE)
 
 一款专注、轻量的 Windows 托盘工具，无需打开完整的配套软件，即可随时查看 Ninjutso Ten 的电量。
 
@@ -96,9 +97,9 @@ Ninjutso Battery Tray 目前支持 **Ninjutso Ten** 的以下连接方式：
 环境要求：
 
 - Windows；
-- 带 Cargo 的 Rust 工具链；
+- Rust 1.100.0 和 Cargo，版本由 [rust-toolchain.toml](rust-toolchain.toml) 固定；
 - 带 `rc.exe` 的 Windows SDK，用于将图标嵌入可执行文件；
-- Inno Setup 6，用于构建安装程序。
+- Inno Setup 6.7.4 或更高版本，用于构建安装程序。
 
 ```powershell
 cargo test
@@ -112,5 +113,7 @@ cargo build --release
 ```
 
 可执行文件将生成在 `target\release\ninjutso-battery-tray.exe`，打包文件将生成在 `dist`。面向开发者的 HID 协议说明位于 [docs/hid-protocol.md](docs/hid-protocol.md)，版本变更记录见 [CHANGELOG.md](CHANGELOG.md)。
+
+[tools/verify.ps1](tools/verify.ps1) 的完整检查也会验证所有 README 中的版本、徽章和本地链接。
 
 </details>

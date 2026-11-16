@@ -1,5 +1,7 @@
 # Inno Setup translations
 
+The installer and all five wizard languages are verified with Inno Setup 6.7.4.
+
 The installer vendors the Belarusian, Kazakh, and Simplified Chinese message
 files from the Inno Setup source tree at tag `is-6_7_3`:
 

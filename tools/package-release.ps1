@@ -1,84 +1,50 @@
 [CmdletBinding()]
-param()
+param([string]$OutputDirectory = 'dist')
 
 $ErrorActionPreference = 'Stop'
-
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$CargoToml = Join-Path $RepoRoot 'Cargo.toml'
-$DistDir = Join-Path $RepoRoot 'dist'
+. (Join-Path $PSScriptRoot 'build-tools.ps1')
+Initialize-ProjectToolchain -RepoRoot $RepoRoot
+
+$Version = Get-ProjectVersion -RepoRoot $RepoRoot
+$InnoCompiler = Find-InnoCompiler -RepoRoot $RepoRoot
+$DistDir = if ([IO.Path]::IsPathRooted($OutputDirectory)) {
+    [IO.Path]::GetFullPath($OutputDirectory)
+} else {
+    [IO.Path]::GetFullPath((Join-Path $RepoRoot $OutputDirectory))
+}
+$StageBase = [IO.Path]::GetFullPath((Join-Path $RepoRoot 'target\release-packaging'))
+$StageDir = Join-Path $StageBase ([Guid]::NewGuid().ToString('N'))
 $ExeName = 'ninjutso-battery-tray.exe'
 $ReleaseExe = Join-Path $RepoRoot "target\release\$ExeName"
 $InstallerScript = Join-Path $RepoRoot 'installer\ninjutso-battery-tray.iss'
 
-function Get-ProjectVersion {
-    $cargo = Get-Content -Raw -LiteralPath $CargoToml
-
-    if ($cargo -notmatch '(?m)^version\s*=\s*"([^"]+)"') {
-        throw 'Could not read package version from Cargo.toml.'
-    }
-
-    return $Matches[1]
-}
-
-function Find-InnoCompiler {
-    $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-    if ($command) {
-        return $command.Source
-    }
-
-    $candidates = @(
-        (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'),
-        (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
-        (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe')
-    )
-
-    foreach ($candidate in $candidates) {
-        if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Leaf)) {
-            return $candidate
-        }
-    }
-
-    throw 'ISCC.exe was not found. Install Inno Setup 6 and run this script again.'
-}
-
-function Reset-Directory {
-    param([string]$Path)
-
-    $resolvedRoot = [System.IO.Path]::GetFullPath($RepoRoot)
-    $resolvedPath = [System.IO.Path]::GetFullPath($Path)
-
-    if (-not $resolvedPath.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "Refusing to remove path outside repository: $resolvedPath"
-    }
-
-    if (Test-Path -LiteralPath $resolvedPath) {
-        Remove-Item -LiteralPath $resolvedPath -Recurse -Force
-    }
-
-    New-Item -ItemType Directory -Path $resolvedPath -Force | Out-Null
-}
-
-$Version = Get-ProjectVersion
-$InnoCompiler = Find-InnoCompiler
-$SetupExe = Join-Path $DistDir "NinjutsoBatteryTraySetup-$Version.exe"
-$PortableDir = Join-Path $DistDir "ninjutso-battery-tray-$Version-portable"
-$PortableZip = Join-Path $DistDir "ninjutso-battery-tray-$Version-portable.zip"
-$Checksums = Join-Path $DistDir 'SHA256SUMS.txt'
-$GitFlicInstallerZip = Join-Path $DistDir "NinjutsoBatteryTraySetup-$Version.zip"
-$GitFlicChecksumsZip = Join-Path $DistDir "SHA256SUMS-$Version.zip"
-
+New-Item -ItemType Directory -Path $StageDir -Force | Out-Null
 Push-Location $RepoRoot
 try {
-    Reset-Directory -Path $DistDir
+    Invoke-CheckedNative -FilePath cargo -Arguments @('build', '--release', '--locked')
+    $binaryVersion = (Get-Item -LiteralPath $ReleaseExe).VersionInfo.ProductVersion
+    if ($binaryVersion -ne $Version) {
+        throw "EXE version '$binaryVersion' does not match Cargo.toml '$Version'."
+    }
+    Invoke-CheckedNative -FilePath $InnoCompiler -Arguments @(
+        "/DMyAppVersion=$Version", "/O$StageDir", $InstallerScript
+    )
 
-    cargo build --release
-    & $InnoCompiler "/DMyAppVersion=$Version" $InstallerScript
+    $SetupExe = Join-Path $StageDir "NinjutsoBatteryTraySetup-$Version.exe"
+    if (-not (Test-Path -LiteralPath $SetupExe -PathType Leaf)) {
+        throw 'The installer compiler did not produce the expected file.'
+    }
+    $PortableDir = Join-Path $StageDir "ninjutso-battery-tray-$Version-portable"
+    $PortableZip = Join-Path $StageDir "ninjutso-battery-tray-$Version-portable.zip"
+    $Checksums = Join-Path $StageDir 'SHA256SUMS.txt'
+    $GitFlicInstallerZip = Join-Path $StageDir "NinjutsoBatteryTraySetup-$Version.zip"
+    $GitFlicChecksumsZip = Join-Path $StageDir "SHA256SUMS-$Version.zip"
 
-    Reset-Directory -Path $PortableDir
-    Copy-Item -LiteralPath $ReleaseExe -Destination (Join-Path $PortableDir $ExeName) -Force
-    Copy-Item -LiteralPath (Join-Path $RepoRoot 'LICENSE') -Destination (Join-Path $PortableDir 'LICENSE.txt') -Force
-    Copy-Item -LiteralPath (Join-Path $RepoRoot 'CHANGELOG.md') -Destination (Join-Path $PortableDir 'CHANGELOG.md') -Force
-
+    New-Item -ItemType Directory -Path $PortableDir | Out-Null
+    Copy-Item -LiteralPath $ReleaseExe -Destination (Join-Path $PortableDir $ExeName)
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'LICENSE') -Destination (Join-Path $PortableDir 'LICENSE.txt')
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'CHANGELOG.md') -Destination (Join-Path $PortableDir 'CHANGELOG.md')
     @"
 Ninjutso Battery Tray $Version
 
@@ -94,28 +60,31 @@ License:
   MIT License with Commons Clause License Condition v1.0
 "@ | Set-Content -LiteralPath (Join-Path $PortableDir 'README.txt') -Encoding UTF8
 
-    if (Test-Path -LiteralPath $PortableZip) {
-        Remove-Item -LiteralPath $PortableZip -Force
-    }
-
-    Compress-Archive -Path (Join-Path $PortableDir '*') -DestinationPath $PortableZip -Force
-
-    $releaseFiles = @($SetupExe, $PortableZip)
-    $hashLines = foreach ($file in $releaseFiles) {
+    Compress-Archive -Path (Join-Path $PortableDir '*') -DestinationPath $PortableZip
+    $hashLines = foreach ($file in @($SetupExe, $PortableZip)) {
         $hash = Get-FileHash -LiteralPath $file -Algorithm SHA256
-        "{0}  {1}" -f $hash.Hash.ToLowerInvariant(), (Split-Path -Leaf $file)
+        '{0}  {1}' -f $hash.Hash.ToLowerInvariant(), (Split-Path -Leaf $file)
     }
     $hashLines | Set-Content -LiteralPath $Checksums -Encoding ASCII
+    Compress-Archive -LiteralPath $SetupExe -DestinationPath $GitFlicInstallerZip
+    Compress-Archive -LiteralPath $Checksums -DestinationPath $GitFlicChecksumsZip
 
-    Compress-Archive -LiteralPath $SetupExe -DestinationPath $GitFlicInstallerZip -Force
-    Compress-Archive -LiteralPath $Checksums -DestinationPath $GitFlicChecksumsZip -Force
-
-    Write-Host "Release artifacts:"
-    Write-Host "  $SetupExe"
-    Write-Host "  $PortableZip"
-    Write-Host "  $Checksums"
-    Write-Host "  $GitFlicInstallerZip"
-    Write-Host "  $GitFlicChecksumsZip"
+    # Copy only after every build/packaging step succeeds. Previous releases
+    # remain available even if a new compiler or packaging command fails.
+    New-Item -ItemType Directory -Path $DistDir -Force | Out-Null
+    foreach ($file in @($SetupExe, $PortableZip, $Checksums, $GitFlicInstallerZip, $GitFlicChecksumsZip)) {
+        $destination = Join-Path $DistDir (Split-Path -Leaf $file)
+        Copy-Item -LiteralPath $file -Destination $destination -Force
+        Write-Host $destination
+    }
 } finally {
     Pop-Location
+    $resolvedStage = [IO.Path]::GetFullPath($StageDir)
+    $allowedPrefix = $StageBase.TrimEnd('\') + '\'
+    if (-not $resolvedStage.StartsWith($allowedPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to remove a staging path outside $StageBase."
+    }
+    if (Test-Path -LiteralPath $resolvedStage) {
+        Remove-Item -LiteralPath $resolvedStage -Recurse -Force
+    }
 }

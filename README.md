@@ -2,11 +2,12 @@
 
 # Ninjutso Battery Tray
 
-[![Latest release](https://img.shields.io/github/v/release/DrStopor/ninjutso-battery-tray?display_name=tag&sort=semver)](https://github.com/DrStopor/ninjutso-battery-tray/releases/latest)
-![Windows](https://img.shields.io/badge/Windows-tray-0078D4?logo=windows11)
-[![Rust 2024](https://img.shields.io/badge/Rust-2024-000000?logo=rust)](Cargo.toml)
-[![Installer](https://img.shields.io/badge/installer-Inno%20Setup-2ea44f)](installer/ninjutso-battery-tray.iss)
-[![License](https://img.shields.io/badge/license-source--available-f59e0b)](LICENSE)
+[![Source version 0.2.1](https://img.shields.io/badge/source-v0.2.1-2563eb)](Cargo.toml)
+[![Latest release](https://img.shields.io/github/v/release/DrStopor/ninjutso-battery-tray?display_name=tag&sort=semver&label=release)](https://github.com/DrStopor/ninjutso-battery-tray/releases/latest)
+![Windows x64](https://img.shields.io/badge/Windows-x64-0078D4)
+[![Rust 1.100.0](https://img.shields.io/badge/Rust-1.100.0-000000?logo=rust&logoColor=white)](rust-toolchain.toml)
+[![Inno Setup 6.7.4+](https://img.shields.io/badge/Inno%20Setup-6.7.4%2B-2ea44f)](installer/ninjutso-battery-tray.iss)
+[![MIT with Commons Clause](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-f59e0b)](LICENSE)
 
 A focused Windows tray utility that keeps your Ninjutso Ten battery level visible without opening a full companion app.
 
@@ -96,9 +97,9 @@ The source may be used, copied, modified, and redistributed under the terms in [
 Requirements:
 
 - Windows;
-- a Rust toolchain with Cargo;
+- Rust 1.100.0 with Cargo, selected by [rust-toolchain.toml](rust-toolchain.toml);
 - Windows SDK with `rc.exe` for embedding the executable icon;
-- Inno Setup 6 for building the installer.
+- Inno Setup 6.7.4 or newer for building the installer.
 
 ```powershell
 cargo test
@@ -112,5 +113,7 @@ Build every release artifact with:
 ```
 
 The release executable is written to `target\release\ninjutso-battery-tray.exe`; packaged artifacts are written to `dist`. Protocol notes for contributors are in [docs/hid-protocol.md](docs/hid-protocol.md), and release changes are tracked in [CHANGELOG.md](CHANGELOG.md).
+
+Run the complete checks with [tools/verify.ps1](tools/verify.ps1), including README versions, badges, and local links.
 
 </details>

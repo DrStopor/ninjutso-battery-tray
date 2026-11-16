@@ -1,5 +1,5 @@
+use crate::model::{ConnectionKind, MouseBattery, ReadError, ReadErrorKind};
 use std::ffi::c_void;
-use std::fmt;
 use std::io;
 use std::mem::size_of;
 use std::ptr::{null, null_mut};
@@ -31,48 +31,6 @@ const DEVICE_TARGETS: [DeviceTarget; 2] = [
         connection: ConnectionKind::Receiver,
     },
 ];
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ConnectionKind {
-    Wired,
-    Receiver,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct MouseBattery {
-    pub percent: u8,
-    pub online: bool,
-    pub charging: bool,
-    pub connection: ConnectionKind,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ReadErrorKind {
-    DeviceNotFound,
-    NoBatteryData,
-    System,
-}
-
-#[derive(Clone, Debug)]
-pub struct ReadError {
-    pub kind: ReadErrorKind,
-    detail: String,
-}
-
-impl ReadError {
-    fn new(kind: ReadErrorKind, detail: impl Into<String>) -> Self {
-        Self {
-            kind,
-            detail: detail.into(),
-        }
-    }
-}
-
-impl fmt::Display for ReadError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&self.detail)
-    }
-}
 
 #[derive(Clone, Copy)]
 struct DeviceTarget {

@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Changed
+
+- Prepare version 0.2.1 with Rust 1.100.0 pinned in rust-toolchain.toml and Inno Setup 6.7.4 as the minimum installer compiler.
+- Extract renderer-independent application state, localization, settings serialization, flyout geometry, typography, palettes, interaction rules, and tray pixels into a reusable library.
+- Isolate Windows HID access, locale detection, settings storage, and the native tray shell under platform/windows as preparation for a GPUI frontend.
+- Add dark and light presentation palettes; keep the shipped dark appearance active in the current native frontend.
+- Add a shared verification script, portable presentation contract tests, and a pixel regression test covering the existing tray renderer.
+- Synchronize source, Rust, installer and license badges across all five README translations, and check their versions and local links during verification.
+
+### Added
+
+- Windows executable version metadata and --version / -V output.
+- Linux compilation checks for the reusable core and presentation tests; the desktop application still supports Windows only.
+
+### Fixed
+
+- Stop release packaging when Cargo or the installer compiler fails, verify the EXE version, and stage packages before copying them to the output directory.
+- Restrict the Windows installer to systems capable of running the x64 application.
+
 ## 0.2.0 - 2026-07-17
 
 ### Added

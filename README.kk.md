@@ -2,11 +2,12 @@
 
 # Ninjutso Battery Tray
 
+[![Бастапқы код нұсқасы 0.2.1](https://img.shields.io/badge/source-v0.2.1-2563eb)](Cargo.toml)
 [![Соңғы шығарылым](https://img.shields.io/github/v/release/DrStopor/ninjutso-battery-tray?display_name=tag&sort=semver&label=release)](https://github.com/DrStopor/ninjutso-battery-tray/releases/latest)
-![Windows](https://img.shields.io/badge/Windows-tray-0078D4?logo=windows11)
-[![Rust 2024](https://img.shields.io/badge/Rust-2024-000000?logo=rust)](Cargo.toml)
-[![Орнатқыш](https://img.shields.io/badge/installer-Inno%20Setup-2ea44f)](installer/ninjutso-battery-tray.iss)
-[![Лицензия](https://img.shields.io/badge/license-source--available-f59e0b)](LICENSE)
+![Windows x64](https://img.shields.io/badge/Windows-x64-0078D4)
+[![Rust 1.100.0](https://img.shields.io/badge/Rust-1.100.0-000000?logo=rust&logoColor=white)](rust-toolchain.toml)
+[![Inno Setup 6.7.4+](https://img.shields.io/badge/Inno%20Setup-6.7.4%2B-2ea44f)](installer/ninjutso-battery-tray.iss)
+[![MIT және Commons Clause](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-f59e0b)](LICENSE)
 
 Ninjutso Ten тінтуірінің зарядын негізгі қолданбаны ашпай-ақ үнемі көз алдында ұстайтын ықшам Windows утилитасы.
 
@@ -96,9 +97,9 @@ Ninjutso Ten тінтуірінің зарядын негізгі қолданб
 Талаптар:
 
 - Windows;
-- Cargo бар Rust құралдар жинағы;
+- Cargo бар Rust 1.100.0; нұсқа [rust-toolchain.toml](rust-toolchain.toml) файлында бекітілген;
 - орындалатын файлға белгішені кірістіруге арналған `rc.exe` бар Windows SDK;
-- орнатқышты құрастыруға арналған Inno Setup 6.
+- орнатқышты құрастыруға арналған Inno Setup 6.7.4 немесе одан жаңа нұсқа.
 
 ```powershell
 cargo test
@@ -112,5 +113,7 @@ cargo build --release
 ```
 
 Орындалатын файл `target\release\ninjutso-battery-tray.exe` жолында, ал дайын пакеттер `dist` қалтасында пайда болады. Әзірлеушілерге арналған HID протоколының сипаттамасы [docs/hid-protocol.md](docs/hid-protocol.md) файлында, өзгерістер тарихы [CHANGELOG.md](CHANGELOG.md) файлында берілген.
+
+[tools/verify.ps1](tools/verify.ps1) толық тексеруі барлық README файлдарындағы нұсқаларды, бейдждерді және жергілікті сілтемелерді де тексереді.
 
 </details>

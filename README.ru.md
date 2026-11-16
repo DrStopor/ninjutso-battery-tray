@@ -2,11 +2,12 @@
 
 # Ninjutso Battery Tray
 
+[![Версия исходников 0.2.1](https://img.shields.io/badge/source-v0.2.1-2563eb)](Cargo.toml)
 [![Последний релиз](https://img.shields.io/github/v/release/DrStopor/ninjutso-battery-tray?display_name=tag&sort=semver&label=release)](https://github.com/DrStopor/ninjutso-battery-tray/releases/latest)
-![Windows](https://img.shields.io/badge/Windows-tray-0078D4?logo=windows11)
-[![Rust 2024](https://img.shields.io/badge/Rust-2024-000000?logo=rust)](Cargo.toml)
-[![Установщик](https://img.shields.io/badge/installer-Inno%20Setup-2ea44f)](installer/ninjutso-battery-tray.iss)
-[![Лицензия](https://img.shields.io/badge/license-source--available-f59e0b)](LICENSE)
+![Windows x64](https://img.shields.io/badge/Windows-x64-0078D4)
+[![Rust 1.100.0](https://img.shields.io/badge/Rust-1.100.0-000000?logo=rust&logoColor=white)](rust-toolchain.toml)
+[![Inno Setup 6.7.4+](https://img.shields.io/badge/Inno%20Setup-6.7.4%2B-2ea44f)](installer/ninjutso-battery-tray.iss)
+[![MIT с Commons Clause](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-f59e0b)](LICENSE)
 
 Аккуратная утилита для Windows, с которой заряд Ninjutso Ten всегда на виду — без необходимости открывать полноценное приложение-компаньон.
 
@@ -96,9 +97,9 @@
 Требования:
 
 - Windows;
-- Rust toolchain с Cargo;
+- Rust 1.100.0 с Cargo; версия закреплена в [rust-toolchain.toml](rust-toolchain.toml);
 - Windows SDK с `rc.exe` для встраивания значка в исполняемый файл;
-- Inno Setup 6 для сборки установщика.
+- Inno Setup 6.7.4 или новее для сборки установщика.
 
 ```powershell
 cargo test
@@ -112,5 +113,7 @@ cargo build --release
 ```
 
 Исполняемый файл появится в `target\release\ninjutso-battery-tray.exe`, а готовые пакеты — в `dist`. Описание HID-протокола для разработчиков находится в [docs/hid-protocol.md](docs/hid-protocol.md), история изменений — в [CHANGELOG.md](CHANGELOG.md).
+
+Полная проверка через [tools/verify.ps1](tools/verify.ps1) также проверяет версии, бейджи и локальные ссылки во всех README.
 
 </details>
