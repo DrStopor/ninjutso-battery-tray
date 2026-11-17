@@ -3,6 +3,10 @@
 #define MyAppExeName "ninjutso-battery-tray.exe"
 #define MyAppRunName "NinjutsoBatteryTray"
 
+#ifndef MplSourcesDir
+#define MplSourcesDir "..\target\license-sources"
+#endif
+
 #if Ver < EncodeVer(6, 7, 4)
 #error Inno Setup 6.7.4 or newer is required.
 #endif
@@ -65,6 +69,15 @@ Name: "autostart"; Description: "{cm:AutoStartProgram,{#MyAppName}}"; GroupDescr
 Source: "..\target\release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "..\THIRD_PARTY_NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\assets\fonts\UPSTREAM.md"; DestDir: "{app}\licenses\fonts"; Flags: ignoreversion
+Source: "..\assets\fonts\SHA256SUMS"; DestDir: "{app}\licenses\fonts"; Flags: ignoreversion
+Source: "..\assets\fonts\source-sans-3\OFL.txt"; DestDir: "{app}\licenses\fonts\source-sans-3"; Flags: ignoreversion
+Source: "..\assets\fonts\noto-sans-sc\OFL.txt"; DestDir: "{app}\licenses\fonts\noto-sans-sc"; Flags: ignoreversion
+Source: "..\assets\fonts\noto-sans-sc\NOTICE.txt"; DestDir: "{app}\licenses\fonts\noto-sans-sc"; Flags: ignoreversion
+Source: "{#MplSourcesDir}\*.crate"; DestDir: "{app}\licenses\sources"; Flags: ignoreversion
+Source: "..\licenses\MPL-SOURCES.md"; DestDir: "{app}\licenses"; Flags: ignoreversion
+Source: "..\licenses\copyleft-sources.sha256"; DestDir: "{app}\licenses"; Flags: ignoreversion
+Source: "..\vendor\xattr\UPSTREAM.md"; DestDir: "{app}\licenses"; DestName: "xattr-UPSTREAM.md"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"

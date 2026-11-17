@@ -1,21 +1,24 @@
 //! GPUI owns the UI thread. The notification area and HID reader are independent services.
 mod assets;
 mod card;
+mod fonts;
+mod typography;
 
 use async_channel::Sender;
 use gpui::{
     App, AppContext, Application, Bounds, Context, WindowAppearance, WindowBounds, WindowHandle,
     WindowKind, WindowOptions, px, size,
 };
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::time::Instant;
 
 use crate::application::{AppEvent, FlyoutAction, FlyoutSession};
 use crate::battery_service::BatteryService;
 use crate::i18n::Language;
 use crate::model::{AppModel, BatteryStatus, Dpi, PollingRate};
-use crate::platform::windows::{instance::SingleInstanceGuard, native, tray::TrayService};
-use crate::platform::windows::{load_settings, read_mouse_battery, save_settings};
+use crate::platform::desktop::{
+    self as shell, SingleInstanceGuard, TrayService, load_settings, read_mouse_battery,
+    save_settings,
+};
 use crate::presentation::layout::Point;
 use crate::presentation::theme::Theme;
 use crate::presentation::view::status_text;
@@ -49,11 +52,11 @@ pub fn run() {
         match SingleInstanceGuard::acquire() {
             Ok(Some(instance)) => Some(instance),
             Ok(None) => {
-                native::show_information(settings.language.strings().already_running);
+                shell::show_information(settings.language.strings().already_running);
                 return;
             }
             Err(error) => {
-                native::show_error(&error);
+                shell::show_error(&error);
                 return;
             }
         }
@@ -72,7 +75,7 @@ pub fn run() {
     let tray = match TrayService::start(model.clone(), sender.clone()) {
         Ok(tray) => tray,
         Err(error) => {
-            native::show_error(&error);
+            shell::show_error(&error);
             return;
         }
     };
@@ -92,7 +95,7 @@ pub fn run() {
         ) {
             Ok(worker) => Some(worker),
             Err(error) => {
-                native::show_error(&error.to_string());
+                shell::show_error(&error.to_string());
                 return;
             }
         }
@@ -102,6 +105,11 @@ pub fn run() {
     Application::new()
         .with_assets(assets::Assets)
         .run(move |cx: &mut App| {
+            if let Err(error) = fonts::register(cx) {
+                shell::show_error(&error.to_string());
+                cx.quit();
+                return;
+            }
             let controller = cx.new(|_| Controller {
                 model,
                 session: FlyoutSession::default(),
@@ -116,7 +124,7 @@ pub fn run() {
                 controller.update(cx, |controller, cx| {
                     controller.event(
                         AppEvent::ToggleFlyout {
-                            anchor: native::cursor_position(),
+                            anchor: shell::cursor_position(),
                             keyboard: true,
                         },
                         cx,
@@ -193,7 +201,7 @@ impl Controller {
                 FlyoutAction::Open(generation) => {
                     if let Err(error) = self.open(anchor, generation, cx) {
                         self.session.hide();
-                        native::show_error(&error);
+                        shell::show_error(&error);
                     }
                 }
                 FlyoutAction::Close => self.close(cx),
@@ -291,12 +299,7 @@ impl Controller {
         handle
             .update(cx, |card, window, cx| {
                 card.reopen(self.model.clone(), generation, window, cx);
-                let raw = window.window_handle().map_err(|error| error.to_string())?;
-                if let RawWindowHandle::Win32(handle) = raw.as_raw() {
-                    native::place_flyout(handle.hwnd.get(), anchor, card::WIDTH, card::HEIGHT)
-                } else {
-                    Err("GPUI did not create a Win32 window".into())
-                }
+                shell::show_flyout(window, anchor, card::WIDTH, card::HEIGHT)
             })
             .map_err(|error| error.to_string())??;
         if let Some(worker) = &self.worker {
@@ -309,15 +312,11 @@ impl Controller {
         if let Some(worker) = &self.worker {
             worker.set_visible(false);
         }
-        // On Windows GPUI quits when the last window is destroyed. Reusing one
+        // GPUI quits when the last window is destroyed. Reusing one
         // hidden card avoids an extra keepalive window and repeated GPU allocation.
         if let Some(handle) = self.flyout {
             let _ = handle.update(cx, |_, window, _| {
-                if let Ok(raw) = window.window_handle()
-                    && let RawWindowHandle::Win32(handle) = raw.as_raw()
-                {
-                    native::hide_flyout(handle.hwnd.get());
-                }
+                shell::hide_flyout(window);
             });
         }
     }
@@ -339,7 +338,7 @@ impl Controller {
         if !self.preview
             && let Err(error) = save_settings(self.model.settings)
         {
-            native::show_error(&error);
+            shell::show_error(&error);
         }
         self.publish(cx);
     }

@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Ninjutso Battery Tray
+Comment=Ninjutso Ten battery, polling rate and DPI in your system tray
+Comment[ru]=Заряд, частота опроса и DPI Ninjutso Ten в системном трее
+Comment[be]=Зарад, частата апытання і DPI Ninjutso Ten у сістэмным трэі
+Comment[kk]=Жүйелік трейдегі Ninjutso Ten заряды, сұрау жиілігі және DPI
+Comment[zh_CN]=在系统托盘中查看 Ninjutso Ten 的电量、轮询率和 DPI
+Exec=ninjutso-battery-tray
+TryExec=ninjutso-battery-tray
+Icon=io.github.DrStopor.NinjutsoBatteryTray
+Terminal=false
+Categories=Utility;HardwareSettings;
+StartupNotify=false
+StartupWMClass=DrStopor.NinjutsoBatteryTray

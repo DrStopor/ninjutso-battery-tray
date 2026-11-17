@@ -93,15 +93,20 @@ pub fn popup_view(status: &BatteryStatus, language: Language) -> FlyoutView {
         },
         BatteryStatus::Unavailable(error) => {
             let missing = error.kind == ReadErrorKind::DeviceNotFound;
+            let denied = error.kind == ReadErrorKind::PermissionDenied;
             FlyoutView {
                 percent: None,
                 percent_text: "—".to_string(),
-                primary: if missing {
+                primary: if denied {
+                    strings.permission_denied
+                } else if missing {
                     strings.device_not_found
                 } else {
                     strings.read_failed
                 },
-                secondary: if missing {
+                secondary: if denied {
+                    strings.permission_denied_help
+                } else if missing {
                     strings.device_not_found_help
                 } else {
                     strings.read_failed_help
@@ -154,6 +159,9 @@ pub fn status_text(status: &BatteryStatus, language: Language) -> String {
         }
         BatteryStatus::Unavailable(error) => match error.kind {
             ReadErrorKind::DeviceNotFound => format!("Ninjutso Ten: {}", strings.device_not_found),
+            ReadErrorKind::PermissionDenied => {
+                format!("Ninjutso Ten: {}", strings.permission_denied)
+            }
             ReadErrorKind::NoBatteryData | ReadErrorKind::System => {
                 format!("Ninjutso Ten: {}", strings.read_failed)
             }

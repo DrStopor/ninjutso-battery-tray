@@ -5,12 +5,13 @@
 [![Source version 0.3.0](https://img.shields.io/badge/source-v0.3.0-2563eb)](Cargo.toml)
 [![Latest release](https://img.shields.io/github/v/release/DrStopor/ninjutso-battery-tray?display_name=tag&sort=semver&label=release)](https://github.com/DrStopor/ninjutso-battery-tray/releases/latest)
 ![Windows x64](https://img.shields.io/badge/Windows-x64-0078D4)
+![Linux x86_64](https://img.shields.io/badge/Linux-x86__64-FCC624?logo=linux&logoColor=black)
 [![Rust 1.100.0](https://img.shields.io/badge/Rust-1.100.0-000000?logo=rust&logoColor=white)](rust-toolchain.toml)
 [![GPUI 0.2.2](https://img.shields.io/badge/GPUI-0.2.2-00b4b6)](https://crates.io/crates/gpui/0.2.2)
 [![Inno Setup 6.7.4+](https://img.shields.io/badge/Inno%20Setup-6.7.4%2B-2ea44f)](installer/ninjutso-battery-tray.iss)
-[![MIT with Commons Clause](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-f59e0b)](LICENSE)
+[![MIT](https://img.shields.io/badge/license-MIT-2ea44f)](LICENSE)
 
-A focused Windows tray utility that keeps your Ninjutso Ten battery level visible without opening a full companion app.
+A focused Windows and Linux tray utility that keeps your Ninjutso Ten battery level visible without opening a full companion app.
 
 ![GPUI status card in English: 72 percent, charging over USB, 1000 Hz, 1100 DPI](docs/assets/screenshots/flyout.en.png)
 
@@ -37,7 +38,19 @@ Ninjutso Battery Tray currently supports the **Ninjutso Ten** through:
 
 If the mouse is not detected, connect it by USB or turn it on, then select **Refresh** from the tray menu.
 
-## Installation
+## Linux (experimental)
+
+The Linux desktop targets **Debian 13 and Ubuntu 26.04, x86-64**, using X11/XWayland, Vulkan and a StatusNotifierItem host. Native Wayland is not supported yet. Build the local `.deb` using the [Linux installation and build guide](docs/linux.md), then install it with:
+
+```sh
+sudo apt install ./ninjutso-battery-tray_0.3.0_amd64.deb
+```
+
+Reconnect the mouse/receiver after installing the included udev rule. Run the app as your normal user, never with `sudo`. On GNOME, enable an AppIndicator extension if the tray icon is missing; **Open status card** also works on hosts that open the menu on left-click. Linux tray-menu colors follow the desktop, while the card supports all four app themes.
+
+Linux support starts with **0.3.0** and is experimental. Debian 13/GNOME with XWayland and a physical mouse through VMware USB passthrough has been checked; Ubuntu 26.04, KDE and bare-metal Linux validation remain pending. If the release page does not provide matching Linux packages, build them from this source. See the guide for known limitations and the VMware physical-unplug workaround.
+
+## Windows installation
 
 [**Download the latest release from GitHub.**](https://github.com/DrStopor/ninjutso-battery-tray/releases/latest)
 
@@ -58,16 +71,16 @@ Right-click the icon to open the menu:
 - **Refresh** — read the battery again;
 - **Show percentage** — switch between the numeric and graphical tray icons;
 - **Language** — change the interface language;
-- **Theme** — Auto (follow Windows), Light, Dark, or NinjaForce;
+- **Theme** — Auto (follow system), Light, Dark, or NinjaForce;
 - **Exit** — close the app.
 
 In numeric mode, the colored edge communicates the battery range: green for 50–100%, amber for 20–49%, and red for 0–19%. The exact charging and connection states remain available in the flyout and tooltip.
 
-The selected language, icon mode, and theme are saved automatically. The card and tray menu, including submenus, share the same theme. Auto follows the Windows app appearance; Light, Dark, and NinjaForce apply independently without restarting. NinjaForce pairs a light lilac surface with the companion app's blue text and control accents, keeping small labels readable and battery warnings distinct. The tray icon retains its high-contrast colors in every theme.
+The selected language, icon mode, and theme are saved automatically. On Windows, the card and tray menu, including submenus, share the same theme. Auto follows the Windows app appearance; Light, Dark, and NinjaForce apply independently without restarting. NinjaForce pairs a light lilac surface with the companion app's blue text and control accents, keeping small labels readable and battery warnings distinct. The tray icon retains its high-contrast colors in every theme.
 
 ## Languages
 
-The interface includes English, Russian, Belarusian, Kazakh, and Simplified Chinese (`zh-CN`). On first launch, the app follows the Windows display language when it is supported and otherwise falls back to English.
+The interface includes English, Russian, Belarusian, Kazakh, and Simplified Chinese (`zh-CN`). On first launch, the app follows the Windows display language or Linux locale when supported, otherwise falling back to English.
 
 The `zh-CN` translation uses Simplified Chinese for mainland China.
 
@@ -87,15 +100,17 @@ Open **Windows Settings → Apps → Installed apps**, find **Ninjutso Battery T
 
 ## Privacy
 
-Battery data is read locally through the Windows HID API. The app does not send data anywhere and contains no analytics, advertising, or background update checker.
+Battery data is read locally through the Windows HID API or Linux hidraw. The app does not send data anywhere and contains no analytics, advertising, or background update checker.
 
 ## Support
 
-[Open an issue on GitHub](https://github.com/DrStopor/ninjutso-battery-tray/issues) and include your Windows version, connection type (receiver or USB), and app version.
+[Open an issue on GitHub](https://github.com/DrStopor/ninjutso-battery-tray/issues) and include your operating system and version, connection type (receiver or USB), and app version. For Linux, also include the desktop environment and whether the session uses X11 or Wayland/XWayland.
 
 ## License
 
-The source may be used, copied, modified, and redistributed under the terms in [LICENSE](LICENSE). The Commons Clause forbids selling the utility itself or a product or service whose value derives substantially from it. This is a source-available project, not OSI open source.
+Licensed under the [MIT License](LICENSE). Use, modification, redistribution and sale, including as part of software bundles and distributions, are permitted when the copyright and license notice are retained.
+
+The bundled Source Sans 3 and Noto Sans SC fonts remain under SIL OFL 1.1; see [font licenses and provenance](assets/fonts/UPSTREAM.md). These terms also permit redistribution with software, including commercial bundles.
 
 Third-party components, including GPUI, retain their own licenses; see [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt).
 
@@ -115,7 +130,7 @@ cargo test --workspace
 cargo build --release
 ```
 
-Portable logic lives in the dependency-free [core package](crates/core/Cargo.toml), where unsafe code is forbidden. Run `cargo test -p ninjutso-battery-core` to test it independently on Windows or Linux; the Linux desktop application is not implemented yet.
+Portable logic and the shared getter-only telemetry pipeline live in the dependency-free [core package](crates/core/Cargo.toml), where unsafe code is forbidden. Run `cargo test -p ninjutso-battery-core` independently on Windows or Linux. Native Linux build, packaging and desktop checks are documented in the [Linux guide](docs/linux.md).
 
 The first GPUI build downloads more dependencies. If `fxc.exe` is not on PATH, set `GPUI_FXC_PATH` to its full path. The packaging and verification scripts also detect installed SDKs.
 

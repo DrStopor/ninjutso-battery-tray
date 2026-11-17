@@ -2,8 +2,9 @@
 use async_channel::Sender;
 use gpui::{prelude::*, *};
 
+use super::fonts::{self, METRIC_FAMILY as METRIC_FONT_FAMILY};
+use super::typography::{TextInk, TypeScale, device_title_size, measure_ink};
 use crate::application::{AppEvent, DismissReason};
-use crate::i18n::Language;
 use crate::model::{AppModel, BatteryStatus, ConnectionKind};
 use crate::presentation::layout::{ChargeRowLayout, DpiBadgeLayout};
 use crate::presentation::theme::{Rgb as Color, Theme};
@@ -12,13 +13,13 @@ use crate::presentation::view::{StatusTone, popup_view, status_text};
 pub(super) const WIDTH: f32 = 304.0;
 pub(super) const HEIGHT: f32 = 156.0;
 const CHARGE_ROW_HEIGHT: f32 = 56.0;
-const CHARGE_FONT_SIZE: f32 = 44.0;
+const CHARGE_FONT_SIZE: f32 = TypeScale::CHARGE;
 const CHARGE_LINE_HEIGHT: f32 = 52.0;
-const PERCENT_FONT_SIZE: f32 = 20.0;
-const DPI_LABEL_SIZE: f32 = 20.0;
-const DPI_VALUE_SIZE: f32 = 11.0;
+const PERCENT_FONT_SIZE: f32 = TypeScale::PERCENT;
+const DPI_LABEL_SIZE: f32 = TypeScale::DPI_LABEL;
+const DPI_VALUE_SIZE: f32 = TypeScale::DPI_VALUE;
 const DPI_HORIZONTAL_PADDING: f32 = 1.0;
-const METRIC_FONT_FAMILY: &str = "Segoe UI";
+const DEVICE_TITLE: &str = "Ninjutso Ten";
 
 pub(super) struct BatteryCard {
     model: AppModel,
@@ -130,39 +131,6 @@ fn color(value: Color) -> gpui::Rgba {
     rgb((u32::from(value.r) << 16) | (u32::from(value.g) << 8) | u32::from(value.b))
 }
 
-struct TextInk {
-    advance: Pixels,
-    left: Pixels,
-    right: Pixels,
-    ascent: Pixels,
-}
-
-/// Measure visible glyphs, not just font-wide cap-height/advance estimates.
-fn measure_ink(
-    system: &WindowTextSystem,
-    font: FontId,
-    size: Pixels,
-    text: &str,
-) -> Option<TextInk> {
-    let mut advance = px(0.0);
-    let mut left = f32::INFINITY;
-    let mut right = f32::NEG_INFINITY;
-    let mut ascent = 0.0_f32;
-    for character in text.chars() {
-        let bounds = system.typographic_bounds(font, size, character).ok()?;
-        left = left.min(f32::from(advance + bounds.origin.x));
-        right = right.max(f32::from(advance + bounds.origin.x + bounds.size.width));
-        ascent = ascent.max(f32::from(bounds.origin.y + bounds.size.height));
-        advance += system.advance(font, size, character).ok()?.width;
-    }
-    left.is_finite().then_some(TextInk {
-        advance,
-        left: px(left),
-        right: px(right),
-        ascent: px(ascent),
-    })
-}
-
 impl Render for BatteryCard {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = Theme::resolve(
@@ -178,11 +146,7 @@ impl Render for BatteryCard {
         let foreground = color(palette.foreground);
         let muted = color(palette.muted);
         let badge = color(palette.badge);
-        let font_family = if self.model.settings.language == Language::ChineseSimplified {
-            "Microsoft YaHei UI"
-        } else {
-            "Segoe UI"
-        };
+        let font_family = fonts::family(self.model.settings.language);
         let close_label = self.model.settings.language.strings().close;
         let polling_rate_hint = self.model.settings.language.strings().polling_rate_hint;
         let dpi_hint = self.model.settings.language.strings().dpi_hint;
@@ -191,6 +155,7 @@ impl Render for BatteryCard {
             weight: FontWeight::SEMIBOLD,
             ..font(METRIC_FONT_FAMILY)
         });
+        let title_size = device_title_size(text_system, charge_font, DEVICE_TITLE);
         let percent_font = text_system.resolve_font(&font(METRIC_FONT_FAMILY));
         // GPUI 0.2.2 exposes a signed font descent on Windows, while its
         // painted line layout uses a positive descent. Match the latter.
@@ -238,7 +203,10 @@ impl Render for BatteryCard {
             .hover(move |style| style.bg(badge).text_color(foreground))
             .focus(move |style| style.border_color(accent).bg(badge))
             .on_click(cx.listener(|card, _, _, _| card.dismiss(DismissReason::CloseButton)))
-            .tooltip(move |_, cx| cx.new(|_| CardTooltip(close_label.into())).into())
+            .tooltip(move |_, cx| {
+                cx.new(|_| CardTooltip(close_label.into(), font_family))
+                    .into()
+            })
             .child(
                 svg()
                     .path("icons/close.svg")
@@ -309,7 +277,7 @@ impl Render for BatteryCard {
                                     .flex_col()
                                     .justify_center()
                                     .tooltip(move |_, cx| {
-                                        cx.new(|_| CardTooltip(dpi_hint.into())).into()
+                                        cx.new(|_| CardTooltip(dpi_hint.into(), font_family)).into()
                                     })
                                     .child(
                                         div()
@@ -374,7 +342,7 @@ impl Render for BatteryCard {
                             div()
                                 .min_w_0()
                                 .text_ellipsis()
-                                .text_size(px(12.0))
+                                .text_size(px(TypeScale::STATUS))
                                 .line_height(px(17.0))
                                 .text_color(muted)
                                 .child(view.primary),
@@ -389,7 +357,7 @@ impl Render for BatteryCard {
                 .h(px(56.0))
                 .child(
                     div()
-                        .text_size(px(13.0))
+                        .text_size(px(TypeScale::MESSAGE))
                         .line_height(px(17.0))
                         .font_weight(FontWeight::SEMIBOLD)
                         .child(view.primary),
@@ -397,7 +365,7 @@ impl Render for BatteryCard {
                 .when(!view.secondary.is_empty(), |element| {
                     element.child(
                         div()
-                            .text_size(px(12.0))
+                            .text_size(px(TypeScale::DETAIL))
                             .line_height(px(16.0))
                             .text_color(muted)
                             .child(view.secondary),
@@ -446,9 +414,9 @@ impl Render for BatteryCard {
                             .child(
                                 div()
                                     .font_family(METRIC_FONT_FAMILY)
-                                    .text_size(px(13.0))
+                                    .text_size(title_size)
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Ninjutso Ten"),
+                                    .child(DEVICE_TITLE),
                             )
                             .when_some(view.polling_rate.clone(), |header, label| {
                                 header.child(
@@ -473,13 +441,16 @@ impl Render for BatteryCard {
                                                 .rounded(px(4.0))
                                                 .border_1()
                                                 .border_color(color(palette.border))
-                                                .text_size(px(10.0))
+                                                .text_size(px(TypeScale::RATE))
                                                 .line_height(px(14.0))
                                                 .font_weight(FontWeight::MEDIUM)
                                                 .text_color(muted)
                                                 .tooltip(move |_, cx| {
                                                     cx.new(|_| {
-                                                        CardTooltip(polling_rate_hint.into())
+                                                        CardTooltip(
+                                                            polling_rate_hint.into(),
+                                                            font_family,
+                                                        )
                                                     })
                                                     .into()
                                                 })
@@ -515,7 +486,7 @@ impl Render for BatteryCard {
                     .items_center()
                     .justify_between()
                     .h(px(14.0))
-                    .text_size(px(11.0))
+                    .text_size(px(TypeScale::FOOTER))
                     .line_height(px(14.0))
                     .text_color(muted)
                     .child(
@@ -537,7 +508,7 @@ impl Render for BatteryCard {
     }
 }
 
-struct CardTooltip(SharedString);
+struct CardTooltip(SharedString, &'static str);
 
 impl Render for CardTooltip {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
@@ -547,7 +518,8 @@ impl Render for CardTooltip {
             .rounded_md()
             .bg(rgb(0x30343b))
             .text_color(rgb(0xffffff))
-            .text_size(px(12.0))
+            .font_family(self.1)
+            .text_size(px(TypeScale::TOOLTIP))
             .max_w(px(268.0))
             .child(self.0.clone())
     }

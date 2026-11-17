@@ -2,17 +2,31 @@
 
 ## Unreleased
 
+## 0.3.0 - 2026-11-17
+
 ### Changed
 
-- Prepare version 0.3.0 with a GPUI 0.2.2 frontend; keep Rust 1.100.0 pinned and Inno Setup 6.7.4 as the minimum installer compiler.
+- Remove Commons Clause from the current source and use the standard MIT License,
+  permitting redistribution and sale, including in software bundles. Update Cargo
+  metadata, all five README license sections/badges and package notices. Previously
+  published archives are not modified by this source change.
+- Embed pinned Source Sans 3 and the official Noto Sans SC Chinese regional
+  subset in both GPUI hosts; retain complete SIL OFL 1.1 notices and verify asset
+  hashes. Share outline-based metric measurement without OS font installation.
+- Use a GPUI 0.2.2 frontend; keep Rust 1.100.0 pinned and Inno Setup 6.7.4 as the minimum installer compiler.
+- Increase card text sizes by one logical pixel while retaining the 304 x 156 window and fixed metric axes.
 - Extract renderer-independent application state, localization, settings serialization, flyout geometry, typography, palettes, interaction rules, and tray pixels into a reusable library.
-- Isolate Windows HID access, locale detection, settings storage, and the native tray shell under platform/windows as preparation for a GPUI frontend.
+- Isolate Windows HID access, locale detection, settings storage, and the native tray shell under platform/windows behind a shared desktop boundary.
 - Rebuild the status card in GPUI: 304 x 156 logical pixels, vector icons, automatic Windows light/dark appearance, a close button, and keyboard focus support.
 - Add a shared verification script, portable presentation contract tests, and a pixel regression test covering the existing tray renderer.
 - Synchronize source, Rust, installer and license badges across all five README translations, and check their versions and local links during verification.
 
 ### Added
 
+- Add a Linux host for X11/XWayland: hidraw access with a scoped udev rule, StatusNotifierItem/DBusMenu, XDG settings, locale detection and a per-user kernel lock. Target Debian 13 and Ubuntu 26.04 on x86-64; native Wayland remains out of scope for the pinned GPUI version.
+- Reuse the GPUI controller/card and getter-only telemetry pipeline across Windows and Linux, with platform-specific window lifecycle behind a narrow desktop boundary and shared application-owned fonts.
+- Add isolated Linux desktop integration checks, Debian-baseline builds, `.deb`/archive packaging, desktop integration and Windows/Linux license notices.
+- Backport Linux ENODATA handling in GPUI's old xattr dependency; retain upstream sources, tests and licenses and document the compatibility patch.
 - Add a fourth NinjaForce theme with light lilac surfaces and blue text/control accents inspired by the companion app; apply it to the card and native tray menus, persist the choice, and keep labels, status warnings and tray digits readable.
 - Read the active DPI stage from the mouse and show it in a dedicated two-line outlined badge between the charge and power status, without increasing the flyout size; unavailable or invalid DPI never hides battery or polling-rate data.
 - Size the numeric DPI reading within its larger uppercase caption and align it right; use glyph measurements for charge-top alignment and pixel checks for both themes and all five locales.
@@ -31,14 +45,31 @@
 - Add third-party license notices, include them in both distributions, and reject stale notices during verification and packaging.
 - Refresh localized README screenshots and verify the pinned GPUI badge in all five translations.
 - Windows executable version metadata and --version / -V output.
-- Linux compilation checks for the reusable core and presentation tests; the desktop application still supports Windows only.
+- Linux compilation checks for the reusable core and presentation tests, plus native Linux host and desktop verification scripts.
 
 ### Fixed
 
+- Accept verified short wired HID replies without inventing missing value bytes;
+  restrict Linux telemetry to the vendor collection instead of probing keyboard,
+  mouse and consumer-control interfaces.
+- Anchor the Linux status-card menu action to the panel, not XWayland's stale
+  pointer position inside the previous card, preventing downward drift on reopen.
+- Acknowledge X11 unmap requests so Escape, close and focus loss reliably hide the Linux card; keep DBusMenu metadata prefetch from dismissing it.
 - Reuse and hide the GPUI card so closing it does not terminate the tray application on Windows.
 - Remove GPUI's normal-window frame insets from the frameless popup and prevent a tray click after deactivation from reopening it.
 - Stop release packaging when Cargo or the installer compiler fails, verify the EXE version, and stage packages before copying them to the output directory.
 - Restrict the Windows installer to systems capable of running the x64 application.
+
+### Known limitations
+
+- Linux support is experimental and requires X11/XWayland. Debian 13/GNOME with
+  a physical mouse through VMware USB passthrough has been checked; Ubuntu 26.04,
+  KDE and bare-metal Linux validation remain pending. See [the Linux guide](docs/linux.md).
+- In the test VM, physically unplugging the receiver can generate a spurious
+  keyboard shortcut even with the app stopped. Disconnect it through VMware
+  before unplugging; the Linux guide records the evidence and workaround.
+- Linux tray-menu appearance is controlled by the desktop, independently of
+  the application's card theme.
 
 ## 0.2.0 - 2026-07-17
 

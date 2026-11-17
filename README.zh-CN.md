@@ -5,12 +5,13 @@
 [![源码版本 0.3.0](https://img.shields.io/badge/source-v0.3.0-2563eb)](Cargo.toml)
 [![最新发布版本](https://img.shields.io/github/v/release/DrStopor/ninjutso-battery-tray?display_name=tag&sort=semver&label=release)](https://github.com/DrStopor/ninjutso-battery-tray/releases/latest)
 ![Windows x64](https://img.shields.io/badge/Windows-x64-0078D4)
+![Linux x86_64](https://img.shields.io/badge/Linux-x86__64-FCC624?logo=linux&logoColor=black)
 [![Rust 1.100.0](https://img.shields.io/badge/Rust-1.100.0-000000?logo=rust&logoColor=white)](rust-toolchain.toml)
 [![GPUI 0.2.2](https://img.shields.io/badge/GPUI-0.2.2-00b4b6)](https://crates.io/crates/gpui/0.2.2)
 [![Inno Setup 6.7.4+](https://img.shields.io/badge/Inno%20Setup-6.7.4%2B-2ea44f)](installer/ninjutso-battery-tray.iss)
-[![MIT 与 Commons Clause](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-f59e0b)](LICENSE)
+[![MIT](https://img.shields.io/badge/license-MIT-2ea44f)](LICENSE)
 
-一款专注、轻量的 Windows 托盘工具，无需打开完整的配套软件，即可随时查看 Ninjutso Ten 的电量。
+一款专注、轻量的 Windows 和 Linux 托盘工具，无需打开完整的配套软件，即可随时查看 Ninjutso Ten 的电量。
 
 ![简体中文 GPUI 状态卡片：电量 72%，USB 充电，1000 Hz, 1100 DPI](docs/assets/screenshots/flyout.zh-CN.png)
 
@@ -37,7 +38,19 @@ Ninjutso Battery Tray 目前支持 **Ninjutso Ten** 的以下连接方式：
 
 如果未检测到鼠标，请通过 USB 连接鼠标或将其开启，然后在托盘菜单中选择 **刷新**。
 
-## 安装
+## Linux（实验性支持）
+
+主要目标系统为 **Debian 13 和 Ubuntu 26.04，x86-64**。需要 X11/XWayland、Vulkan 和支持 StatusNotifierItem 的托盘。暂不支持原生 Wayland。请按照 [Linux 指南](docs/linux.md) 构建本地 `.deb` 软件包，然后安装：
+
+```sh
+sudo apt install ./ninjutso-battery-tray_0.3.0_amd64.deb
+```
+
+安装软件包附带的 udev 规则后，请重新连接鼠标或接收器。应用本身应以普通用户运行，不要使用 `sudo`。如果 GNOME 中没有托盘图标，请启用 AppIndicator 扩展。对于左键点击会打开菜单的桌面环境，可使用**打开状态卡片**菜单项。Linux 系统托盘菜单的颜色由桌面环境控制；状态卡片支持应用的全部四种主题。
+
+Linux 支持从 **0.3.0** 开始提供，目前仍属实验性功能。已在 Debian 13/GNOME 的 XWayland 环境中通过 VMware USB 直通验证实体鼠标；Ubuntu 26.04、KDE 和实体电脑上的 Linux 尚未验证。如果发布页面没有对应的 Linux 软件包，请从此源码构建。已知限制及 VMware 中直接拔出接收器问题的规避方法见 Linux 指南。
+
+## Windows 安装
 
 [**从 GitHub 下载最新版本。**](https://github.com/DrStopor/ninjutso-battery-tray/releases/latest)
 
@@ -63,11 +76,11 @@ Ninjutso Battery Tray 目前支持 **Ninjutso Ten** 的以下连接方式：
 
 在数字模式下，边框颜色表示电量区间：绿色为 50–100%，琥珀色为 20–49%，红色为 0–19%。准确的充电和连接状态始终可在状态卡片和工具提示中查看。
 
-所选语言、图标模式和主题都会自动保存。状态卡片与托盘菜单（包括子菜单）使用相同主题。“跟随系统”使用 Windows 应用主题；“浅色”、“深色”和 NinjaForce 可独立于系统设置立即生效，无需重启。NinjaForce 将浅丁香紫背景与官方应用的蓝色文字及控件强调色相结合，确保小字号文字清晰可读，并保留易于区分的电量警告色。所有主题下的托盘图标均保持高对比度配色。
+所选语言、图标模式和主题都会自动保存。在 Windows 中，状态卡片与托盘菜单（包括子菜单）使用相同主题。“跟随系统”使用 Windows 应用主题；“浅色”、“深色”和 NinjaForce 可独立于系统设置立即生效，无需重启。NinjaForce 将浅丁香紫背景与官方应用的蓝色文字及控件强调色相结合，确保小字号文字清晰可读，并保留易于区分的电量警告色。所有主题下的托盘图标均保持高对比度配色。
 
 ## 语言
 
-界面提供英语、俄语、白俄罗斯语、哈萨克语和简体中文（`zh-CN`）。首次启动时，应用会优先采用受支持的 Windows 显示语言；如果不受支持，则改用英语。
+界面提供英语、俄语、白俄罗斯语、哈萨克语和简体中文（`zh-CN`）。首次启动时，应用会优先采用受支持的 Windows 显示语言或 Linux 区域设置；如果不受支持，则改用英语。
 
 `zh-CN` 使用面向中国大陆的简体中文。
 
@@ -87,15 +100,17 @@ Ninjutso Battery Tray 目前支持 **Ninjutso Ten** 的以下连接方式：
 
 ## 隐私
 
-电量数据仅通过 Windows HID API 在本机读取。应用不会向任何位置发送数据，也不包含分析、广告或后台更新检查功能。
+电量数据仅通过 Windows HID API 或 Linux hidraw 在本机读取。应用不会向任何位置发送数据，也不包含分析、广告或后台更新检查功能。
 
 ## 支持
 
-[在 GitHub 提交问题](https://github.com/DrStopor/ninjutso-battery-tray/issues)时，请附上 Windows 版本、连接方式（接收器或 USB）和应用版本。
+[在 GitHub 提交问题](https://github.com/DrStopor/ninjutso-battery-tray/issues)时，请附上操作系统及其版本、连接方式（接收器或 USB）和应用版本。对于 Linux，还请注明桌面环境及会话类型：X11 或 Wayland/XWayland。
 
 ## 许可证
 
-可根据 [LICENSE](LICENSE) 中的条款使用、复制、修改和再分发源代码。Commons Clause 禁止出售本工具本身，或出售其主要价值实质上来自本工具的产品或服务。因此本项目属于 source-available，而非 OSI 定义下的开源软件。
+本项目采用 [MIT 许可证](LICENSE)。保留版权声明及许可证文本后，可以使用、修改、再分发和销售本软件，包括将其纳入软件合集和发行版。
+
+内置的 Source Sans 3 和 Noto Sans SC 字体保留 SIL OFL 1.1 许可证；详见[字体许可证与来源](assets/fonts/UPSTREAM.md)。该许可证同样允许随软件分发，包括商业软件合集。
 
 GPUI 等第三方组件保留各自的许可证，详见 [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt)。
 
@@ -115,7 +130,7 @@ cargo test --workspace
 cargo build --release
 ```
 
-跨平台逻辑位于[核心包](crates/core/Cargo.toml)中，不依赖外部库，并禁止使用 unsafe 代码。运行 `cargo test -p ninjutso-battery-core` 可在 Windows 或 Linux 上单独测试核心；Linux 桌面应用尚未实现。
+跨平台逻辑和共享的只读遥测流程位于[核心包](crates/core/Cargo.toml)中，不依赖外部库，并禁止使用 unsafe 代码。运行 `cargo test -p ninjutso-battery-core` 可在 Windows 或 Linux 上单独测试核心。Linux 原生构建、打包和界面检查请参阅 [Linux 指南](docs/linux.md)。
 
 首次构建 GPUI 会下载更多依赖。如果 PATH 中没有 `fxc.exe`，请通过 `GPUI_FXC_PATH` 设置完整路径。打包与验证脚本也会自动检测已安装的 SDK。
 

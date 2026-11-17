@@ -17,7 +17,9 @@ try {
     Invoke-CheckedNative -FilePath cargo -Arguments @('test', '--workspace', '--no-default-features', '--target-dir', 'target/native', '--locked')
     Invoke-CheckedNative -FilePath cargo -Arguments @('build', '--release', '--locked')
     if ($CheckLinuxCore) {
-        Invoke-CheckedNative -FilePath cargo -Arguments @('check', '--workspace', '--all-targets', '--locked', '--target', 'x86_64-unknown-linux-gnu')
+        # The desktop now links real Linux system libraries; cross-check only
+        # the dependency-free core here. tools/verify-linux.sh checks the host.
+        Invoke-CheckedNative -FilePath cargo -Arguments @('check', '-p', 'ninjutso-battery-core', '--all-targets', '--locked', '--target', 'x86_64-unknown-linux-gnu')
     }
     $expected = Get-ProjectVersion -RepoRoot $RepoRoot
     $actual = (Get-Item -LiteralPath 'target\release\ninjutso-battery-tray.exe').VersionInfo.ProductVersion

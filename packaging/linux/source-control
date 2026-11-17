@@ -1,0 +1,9 @@
+Source: ninjutso-battery-tray
+Section: utils
+Priority: optional
+Maintainer: Ninjutso Battery Tray contributors <noreply@github.com>
+
+Package: ninjutso-battery-tray
+Architecture: any
+Description: Ninjutso Ten battery tray
+ Local read-only HID battery monitor.

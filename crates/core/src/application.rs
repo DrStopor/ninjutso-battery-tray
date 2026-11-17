@@ -36,6 +36,10 @@ pub enum AppEvent {
 impl From<MenuCommand> for AppEvent {
     fn from(command: MenuCommand) -> Self {
         match command {
+            MenuCommand::ShowStatus => Self::ToggleFlyout {
+                anchor: Point { x: 0, y: 0 },
+                keyboard: true,
+            },
             MenuCommand::Refresh => Self::Refresh,
             MenuCommand::TogglePercentage => Self::TogglePercentage,
             MenuCommand::SetLanguage(language) => Self::SetLanguage(language),

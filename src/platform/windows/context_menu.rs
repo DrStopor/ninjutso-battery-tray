@@ -29,11 +29,13 @@ use crate::settings::ThemePreference;
 const REFRESH: u32 = 1001;
 const PERCENTAGE: u32 = 1002;
 const EXIT: u32 = 1003;
+const SHOW_STATUS: u32 = 1004;
 const LANGUAGE_FIRST: u32 = 1100;
 const THEME_FIRST: u32 = 1200;
 
 pub(super) fn command_id(command: MenuCommand) -> u32 {
     match command {
+        MenuCommand::ShowStatus => SHOW_STATUS,
         MenuCommand::Refresh => REFRESH,
         MenuCommand::TogglePercentage => PERCENTAGE,
         MenuCommand::Quit => EXIT,
@@ -52,6 +54,7 @@ pub(super) fn command_id(command: MenuCommand) -> u32 {
 
 pub(super) fn command_from_id(id: u32) -> Option<MenuCommand> {
     match id {
+        SHOW_STATUS => Some(MenuCommand::ShowStatus),
         REFRESH => Some(MenuCommand::Refresh),
         PERCENTAGE => Some(MenuCommand::TogglePercentage),
         EXIT => Some(MenuCommand::Quit),
@@ -485,6 +488,7 @@ mod tests {
     #[test]
     fn native_ids_round_trip_without_overlapping() {
         let commands = [
+            MenuCommand::ShowStatus,
             MenuCommand::Refresh,
             MenuCommand::TogglePercentage,
             MenuCommand::Quit,

@@ -1,0 +1,4 @@
+# Limit access to the two supported Ninjutso Ten USB identities. uaccess grants
+# the active local desktop user an ACL; no world-writable devices or input group.
+ACTION!="remove", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="093a", ATTRS{idProduct}=="e020", TAG+="uaccess"
+ACTION!="remove", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="093a", ATTRS{idProduct}=="eb01", TAG+="uaccess"

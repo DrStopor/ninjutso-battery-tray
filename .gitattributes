@@ -6,6 +6,24 @@
 *.md text eol=lf
 *.iss text eol=crlf
 *.ps1 text eol=crlf
+*.sh text eol=lf
+*.py text eol=lf
+*.rules text eol=lf
+*.desktop text eol=lf
+packaging/linux/postinst text eol=lf
+packaging/linux/postrm text eol=lf
+packaging/linux/Dockerfile* text eol=lf
+packaging/linux/control.in text eol=lf
+packaging/linux/source-control text eol=lf
 *.gitignore text eol=lf
 .gitattributes text eol=lf
 LICENSE text eol=lf
+*.otf binary
+*.ttf binary
+# Preserve hash-pinned upstream license/notice bytes, including original spacing.
+assets/fonts/**/OFL.txt -text whitespace=-blank-at-eol
+assets/fonts/**/NOTICE.txt -text
+assets/fonts/SHA256SUMS text eol=lf
+
+# Vendored upstream files retain their original trailing blank lines.
+vendor/xattr/** whitespace=-blank-at-eof

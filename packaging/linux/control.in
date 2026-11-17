@@ -1,0 +1,16 @@
+Package: ninjutso-battery-tray
+Version: @VERSION@
+Section: utils
+Priority: optional
+Architecture: @ARCH@
+Maintainer: Ninjutso Battery Tray contributors <noreply@github.com>
+Homepage: https://github.com/DrStopor/ninjutso-battery-tray
+Depends: @DEPENDS@, libvulkan1
+Recommends: mesa-vulkan-drivers, xwayland
+Suggests: gnome-shell-extension-appindicator
+Description: Ninjutso Ten battery status in the system tray
+ Read battery level, charging state, connection, configured polling rate and DPI
+ without changing mouse settings. GPUI card with five languages and four themes.
+ Uses X11/XWayland and StatusNotifierItem/DBusMenu. Native Wayland is not supported.
+ License: MIT; see /usr/share/doc/ninjutso-battery-tray/LICENSE.
+ Bundled Source Sans 3 and Noto fonts retain SIL OFL 1.1; see licenses/fonts in that directory.

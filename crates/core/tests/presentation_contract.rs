@@ -514,3 +514,27 @@ fn ninjaforce_preserves_the_companion_palette_without_changing_the_tray_contrast
         assert_eq!(theme.tray.numeric_surface, Theme::DARK.tray.numeric_surface);
     }
 }
+
+#[test]
+fn linux_permissions_have_actionable_localized_feedback_without_fake_metrics() {
+    for language in Language::ALL {
+        let status =
+            BatteryStatus::Unavailable(ReadError::new(ReadErrorKind::PermissionDenied, "EACCES"));
+        let view = popup_view(&status, language);
+        assert_eq!(view.primary, language.strings().permission_denied);
+        assert!(view.secondary.contains("udev"));
+        assert!(view.percent.is_none() && view.dpi.is_none() && view.polling_rate.is_none());
+        assert!(status_text(&status, language).contains(language.strings().permission_denied));
+        let menu = ninjutso_battery_core::presentation::menu::tray_menu_with_status(Settings {
+            language,
+            ..Settings::default()
+        });
+        assert!(matches!(
+            menu[0],
+            ninjutso_battery_core::presentation::menu::MenuEntry::Action {
+                command: ninjutso_battery_core::presentation::menu::MenuCommand::ShowStatus,
+                ..
+            }
+        ));
+    }
+}

@@ -23,13 +23,15 @@ New-Item -ItemType Directory -Path $StageDir -Force | Out-Null
 Push-Location $RepoRoot
 try {
     & (Join-Path $PSScriptRoot 'update-licenses.ps1') -Check
+    $MplSourceDir = Join-Path $StageDir 'mpl-sources'
+    & (Join-Path $PSScriptRoot 'collect-license-sources.ps1') -Destination $MplSourceDir
     Invoke-CheckedNative -FilePath cargo -Arguments @('build', '--release', '--locked')
     $binaryVersion = (Get-Item -LiteralPath $ReleaseExe).VersionInfo.ProductVersion
     if ($binaryVersion -ne $Version) {
         throw "EXE version '$binaryVersion' does not match Cargo.toml '$Version'."
     }
     Invoke-CheckedNative -FilePath $InnoCompiler -Arguments @(
-        "/DMyAppVersion=$Version", "/O$StageDir", $InstallerScript
+        "/DMyAppVersion=$Version", "/DMplSourcesDir=$MplSourceDir", "/O$StageDir", $InstallerScript
     )
 
     $SetupExe = Join-Path $StageDir "NinjutsoBatteryTraySetup-$Version.exe"
@@ -47,6 +49,24 @@ try {
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'LICENSE') -Destination (Join-Path $PortableDir 'LICENSE.txt')
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'THIRD_PARTY_NOTICES.txt') -Destination (Join-Path $PortableDir 'THIRD_PARTY_NOTICES.txt')
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'CHANGELOG.md') -Destination (Join-Path $PortableDir 'CHANGELOG.md')
+    $PortableLicenses = Join-Path $PortableDir 'licenses'
+    New-Item -ItemType Directory -Path $PortableLicenses | Out-Null
+    Copy-Item -LiteralPath $MplSourceDir -Destination (Join-Path $PortableLicenses 'sources') -Recurse
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'licenses/MPL-SOURCES.md') -Destination $PortableLicenses
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'licenses/copyleft-sources.sha256') -Destination $PortableLicenses
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'vendor/xattr/UPSTREAM.md') -Destination (Join-Path $PortableLicenses 'xattr-UPSTREAM.md')
+    $PortableFonts = Join-Path $PortableLicenses 'fonts'
+    New-Item -ItemType Directory -Path $PortableFonts | Out-Null
+    foreach ($name in @('UPSTREAM.md', 'SHA256SUMS')) {
+        Copy-Item -LiteralPath (Join-Path $RepoRoot "assets/fonts/$name") -Destination $PortableFonts
+    }
+    foreach ($family in @('source-sans-3', 'noto-sans-sc')) {
+        $directory = Join-Path $PortableFonts $family
+        New-Item -ItemType Directory -Path $directory | Out-Null
+        Copy-Item -LiteralPath (Join-Path $RepoRoot "assets/fonts/$family/OFL.txt") -Destination $directory
+        $copyright = Join-Path $RepoRoot "assets/fonts/$family/NOTICE.txt"
+        if (Test-Path -LiteralPath $copyright) { Copy-Item -LiteralPath $copyright -Destination $directory }
+    }
     @"
 Ninjutso Battery Tray $Version
 
@@ -59,7 +79,7 @@ Settings are stored in:
   %APPDATA%\NinjutsoBatteryTray\settings.txt
 
 License:
-  MIT License with Commons Clause License Condition v1.0
+  MIT License (application); SIL OFL 1.1 (bundled fonts)
 "@ | Set-Content -LiteralPath (Join-Path $PortableDir 'README.txt') -Encoding UTF8
 
     Compress-Archive -Path (Join-Path $PortableDir '*') -DestinationPath $PortableZip

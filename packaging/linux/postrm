@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+case "$1" in
+    remove|purge)
+        if command -v udevadm >/dev/null 2>&1; then udevadm control --reload-rules || true; fi
+        if command -v update-desktop-database >/dev/null 2>&1; then update-desktop-database -q || true; fi
+        ;;
+esac
+# User preferences/autostart entries are never removed by package scripts.

@@ -12,9 +12,12 @@ fn main() {
     #[cfg(windows)]
     ninjutso_battery_tray::platform::windows::run();
 
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    ninjutso_battery_tray::platform::linux::run();
+
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
-        eprintln!("The tray application currently supports Windows only.");
+        eprintln!("The tray application supports Windows and Linux.");
         std::process::exit(1);
     }
 }

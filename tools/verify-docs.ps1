@@ -11,6 +11,10 @@ $rustMatch = [regex]::Match($toolchain, '(?m)^channel\s*=\s*"([^"]+)"')
 if (-not $rustMatch.Success) { throw 'Could not read the pinned Rust version.' }
 $RustVersion = $rustMatch.Groups[1].Value
 $cargo = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot 'Cargo.toml')
+if ($cargo -notmatch '(?m)^license = "MIT"\r?$' -or
+    (Get-Content -Raw -LiteralPath (Join-Path $RepoRoot 'LICENSE')) -match 'Commons Clause') {
+    throw 'Current project metadata and LICENSE must use MIT without Commons Clause.'
+}
 $gpuiMatch = [regex]::Match($cargo, '(?m)^gpui\s*=\s*\{\s*version\s*=\s*"=([^"]+)"')
 if (-not $gpuiMatch.Success) { throw 'Could not read the pinned GPUI version.' }
 $GpuiVersion = $gpuiMatch.Groups[1].Value
@@ -23,10 +27,11 @@ $ExpectedBadges = @(
     "https://img.shields.io/badge/source-v$sourceVersion-2563eb",
     'https://img.shields.io/github/v/release/DrStopor/ninjutso-battery-tray?display_name=tag&sort=semver&label=release',
     'https://img.shields.io/badge/Windows-x64-0078D4',
+    'https://img.shields.io/badge/Linux-x86__64-FCC624?logo=linux&logoColor=black',
     "https://img.shields.io/badge/Rust-$RustVersion-000000?logo=rust&logoColor=white",
     "https://img.shields.io/badge/GPUI-$GpuiVersion-00b4b6",
     "https://img.shields.io/badge/Inno%20Setup-$InnoVersion%2B-2ea44f",
-    'https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-f59e0b'
+    'https://img.shields.io/badge/license-MIT-2ea44f'
 )
 $Readmes = @('README.md', 'README.ru.md', 'README.be.md', 'README.kk.md', 'README.zh-CN.md')
 $linkPatterns = @(
@@ -37,6 +42,15 @@ $linkPatterns = @(
 
 foreach ($readme in $Readmes) {
     $text = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot $readme)
+    if ($text -match 'Commons Clause|source-available') {
+        throw "$($readme): outdated project licensing description."
+    }
+    if (-not $text.Contains('assets/fonts/UPSTREAM.md')) {
+        throw "$($readme): missing bundled-font license/provenance link."
+    }
+    if (-not $text.Contains("ninjutso-battery-tray_${Version}_amd64.deb")) {
+        throw "$($readme): outdated Linux package installation example."
+    }
     $badges = [regex]::Matches($text, '!\[([^\]]*)\]\((https://img\.shields\.io/[^)\r\n]+)\)')
     if ($badges.Count -ne $ExpectedBadges.Count) {
         throw "$($readme): expected $($ExpectedBadges.Count) badges, found $($badges.Count)."
@@ -46,7 +60,7 @@ foreach ($readme in $Readmes) {
             throw "$($readme): outdated or inconsistent badge: $($badges[$i].Groups[2].Value)"
         }
     }
-    foreach ($pair in @(@(0, $Version), @(3, $RustVersion), @(4, $GpuiVersion), @(5, $InnoVersion))) {
+    foreach ($pair in @(@(0, $Version), @(4, $RustVersion), @(5, $GpuiVersion), @(6, $InnoVersion))) {
         if (-not $badges[$pair[0]].Groups[1].Value.Contains($pair[1])) {
             throw "$($readme): outdated badge alternative text."
         }

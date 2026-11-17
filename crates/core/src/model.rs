@@ -89,6 +89,7 @@ pub struct MouseBattery {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ReadErrorKind {
     DeviceNotFound,
+    PermissionDenied,
     NoBatteryData,
     System,
 }

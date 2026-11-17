@@ -73,6 +73,9 @@ impl Language {
         match self {
             Self::Russian => Strings {
                 refresh: "Обновить",
+                show_status: "Открыть карточку",
+                permission_denied: "Нет доступа к мыши",
+                permission_denied_help: "Установите правило udev и подключите заново",
                 show_percent: "Показать процент",
                 language: "Язык",
                 theme: "Тема",
@@ -101,6 +104,9 @@ impl Language {
             },
             Self::English => Strings {
                 refresh: "Refresh",
+                show_status: "Open status card",
+                permission_denied: "Mouse access denied",
+                permission_denied_help: "Install the udev rule and reconnect the mouse",
                 show_percent: "Show percentage",
                 language: "Language",
                 theme: "Theme",
@@ -129,6 +135,9 @@ impl Language {
             },
             Self::Belarusian => Strings {
                 refresh: "Абнавіць",
+                show_status: "Адкрыць картку",
+                permission_denied: "Няма доступу да мышы",
+                permission_denied_help: "Усталюйце правіла udev і падключыце нанова",
                 show_percent: "Паказваць працэнт",
                 language: "Мова",
                 theme: "Тэма",
@@ -157,6 +166,9 @@ impl Language {
             },
             Self::Kazakh => Strings {
                 refresh: "Жаңарту",
+                show_status: "Күй карточкасын ашу",
+                permission_denied: "Тінтуірге кіру рұқсаты жоқ",
+                permission_denied_help: "udev ережесін орнатып, қайта қосыңыз",
                 show_percent: "Пайызды көрсету",
                 language: "Тіл",
                 theme: "Тақырып",
@@ -185,6 +197,9 @@ impl Language {
             },
             Self::ChineseSimplified => Strings {
                 refresh: "刷新",
+                show_status: "打开状态卡片",
+                permission_denied: "无权访问鼠标",
+                permission_denied_help: "请安装 udev 规则并重新连接鼠标",
                 show_percent: "显示电量百分比",
                 language: "语言",
                 theme: "主题",
@@ -218,6 +233,9 @@ impl Language {
 #[derive(Clone, Copy)]
 pub struct Strings {
     pub refresh: &'static str,
+    pub show_status: &'static str,
+    pub permission_denied: &'static str,
+    pub permission_denied_help: &'static str,
     pub show_percent: &'static str,
     pub language: &'static str,
     pub theme: &'static str,

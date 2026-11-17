@@ -1,0 +1,11 @@
+Noto Sans SC Regular and Medium, version 2.004
+
+Copyright notice from the original font files' OpenType name table (name ID 0):
+© 2014-2021 Adobe (http://www.adobe.com/).
+
+The original, unmodified font files and accompanying OFL.txt are from
+notofonts/noto-cjk, tag Sans2.004, commit
+523d033d6cb47f4a80c58a35753646f5c3608a78.
+They remain licensed under SIL Open Font License 1.1, not the application's MIT
+License. Preserve this copyright notice and the complete OFL.txt when bundling
+and redistributing the fonts with the application.

@@ -11,3 +11,4 @@ pub mod model;
 pub mod presentation;
 pub mod protocol;
 pub mod settings;
+pub mod telemetry;

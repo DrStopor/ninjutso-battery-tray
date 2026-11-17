@@ -4,6 +4,7 @@ use crate::settings::{Settings, ThemePreference};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MenuCommand {
+    ShowStatus,
     Refresh,
     TogglePercentage,
     SetLanguage(Language),
@@ -81,6 +82,21 @@ pub fn tray_menu(settings: Settings) -> Vec<MenuEntry> {
             mark: MenuMark::None,
         },
     ]
+}
+
+/// Some SNI hosts open a menu even on primary click (notably GNOME).
+/// Always provide an explicit, localized way to reach the status card there.
+pub fn tray_menu_with_status(settings: Settings) -> Vec<MenuEntry> {
+    let mut entries = tray_menu(settings);
+    entries.insert(
+        0,
+        MenuEntry::Action {
+            label: settings.language.strings().show_status,
+            command: MenuCommand::ShowStatus,
+            mark: MenuMark::None,
+        },
+    );
+    entries
 }
 
 #[cfg(test)]

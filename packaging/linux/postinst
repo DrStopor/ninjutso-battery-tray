@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+if [ "$1" = configure ]; then
+    # Reload only. Do not trigger all HID devices, change their modes, or start
+    # the GUI as root. Reconnect the mouse/receiver to receive the new seat ACL.
+    if command -v udevadm >/dev/null 2>&1; then
+        udevadm control --reload-rules || true
+    fi
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database -q || true
+    fi
+fi

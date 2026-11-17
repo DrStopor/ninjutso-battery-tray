@@ -1,5 +1,6 @@
 [workspace]
 members = ["crates/core"]
+exclude = ["vendor/xattr"]
 default-members = [".", "crates/core"]
 resolver = "3"
 
@@ -7,7 +8,7 @@ resolver = "3"
 version = "0.3.0"
 edition = "2024"
 rust-version = "1.100"
-license-file = "LICENSE"
+license = "MIT"
 repository = "https://github.com/DrStopor/ninjutso-battery-tray"
 
 [package]
@@ -15,7 +16,7 @@ name = "ninjutso-battery-tray"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 
@@ -24,13 +25,16 @@ ninjutso-battery-core = { path = "crates/core" }
 
 [features]
 default = ["gpui-ui"]
-gpui-ui = ["dep:gpui", "dep:async-channel", "dep:raw-window-handle", "dep:windows", "dep:anyhow"]
+gpui-ui = ["dep:gpui", "dep:async-channel", "dep:raw-window-handle", "dep:windows", "dep:anyhow", "dep:ksni", "dep:x11rb", "dep:ttf-parser"]
 
-[target.'cfg(windows)'.dependencies]
-gpui = { version = "=0.2.2", default-features = false, optional = true }
+[target.'cfg(any(windows, target_os = "linux"))'.dependencies]
 async-channel = { version = "=2.5.0", optional = true }
 raw-window-handle = { version = "=0.6.2", optional = true }
 anyhow = { version = "=1.0.104", optional = true }
+ttf-parser = { version = "=0.25.1", optional = true }
+
+[target.'cfg(windows)'.dependencies]
+gpui = { version = "=0.2.2", default-features = false, optional = true }
 windows = { version = "=0.61.3", optional = true, features = [
     "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm",
     "Win32_System_Threading", "Win32_System_LibraryLoader", "Win32_Security",
@@ -38,3 +42,18 @@ windows = { version = "=0.61.3", optional = true, features = [
     "Win32_UI_Controls", "Win32_UI_Accessibility",
     "Win32_Devices_DeviceAndDriverInstallation",
 ] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# GPUI 0.2.2 cannot hide a native Wayland window. Use X11/XWayland until the
+# framework exposes a supported remap API; do not manipulate foreign wl_surfaces.
+gpui = { version = "=0.2.2", default-features = false, features = ["x11"], optional = true }
+hidapi = { version = "=2.6.7", default-features = false, features = ["linux-native-basic-udev"] }
+ksni = { version = "=0.3.7", default-features = false, features = ["async-io", "blocking"], optional = true }
+x11rb = { version = "=0.13.2", features = ["randr"], optional = true }
+libc = "=0.2.191"
+log = "=0.4.35"
+
+[patch.crates-io]
+# GPUI's zed-async-tar still depends on xattr 0.2. Linux calls this errno
+# ENODATA; recent libc removed the long-deprecated ENOATTR alias.
+xattr = { path = "vendor/xattr" }

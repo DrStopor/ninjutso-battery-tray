@@ -1,6 +1,6 @@
 # Only third-party dependencies. The application's separate terms are in LICENSE.
 private = { ignore = true }
-targets = ["x86_64-pc-windows-msvc"]
+targets = ["x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu"]
 ignore-build-dependencies = false
 ignore-dev-dependencies = true
 ignore-transitive-dependencies = false
@@ -16,3 +16,11 @@ accepted = ["OpenSSL"]
 
 [unicode-ident]
 accepted = ["Unicode-DFS-2016"]
+
+# File-level copyleft remains on these unmodified upstream components only.
+# Their exact source archives are included in all binary distributions.
+[dwrote]
+accepted = ["MPL-2.0"]
+
+[option-ext]
+accepted = ["MPL-2.0"]

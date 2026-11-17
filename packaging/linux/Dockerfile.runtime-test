@@ -1,0 +1,6 @@
+ARG BASE=debian:13-slim
+FROM ${BASE}
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    dbus-x11 xvfb xauth openbox xdotool scrot python3 python3-dbus python3-gi \
+    libvulkan1 mesa-vulkan-drivers fonts-dejavu-core
+WORKDIR /work

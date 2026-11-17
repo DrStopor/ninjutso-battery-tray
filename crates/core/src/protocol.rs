@@ -40,8 +40,17 @@ impl ReadRequest {
         report
     }
 
-    pub fn accepts(self, response: &[u8; 16]) -> bool {
-        response[0] == 0x06 && response[1] == self.command()
+    pub fn accepts(self, response: &[u8]) -> bool {
+        // Ten's wired firmware omits trailing padding: scalar getters return
+        // nine bytes, while DPI needs both bytes of the u16 at offsets 8..10.
+        // Never turn a truncated value into a plausible zero-padded reading.
+        let required = match self {
+            Self::DpiStage { .. } => 10,
+            _ => 9,
+        };
+        (required..=16).contains(&response.len())
+            && response[0] == 0x06
+            && response[1] == self.command()
     }
 }
 
@@ -122,6 +131,41 @@ mod tests {
             response[1] = command;
             response[0] = 7;
             assert!(!request.accepts(&response));
+        }
+    }
+
+    #[test]
+    fn replies_may_omit_padding_but_not_the_value_or_command_echo() {
+        for request in [
+            ReadRequest::Online,
+            ReadRequest::Battery,
+            ReadRequest::Charging,
+            ReadRequest::ActiveProfile,
+            ReadRequest::PollingRate { profile: 1 },
+            ReadRequest::ActiveDpiStage { profile: 1 },
+            ReadRequest::DpiStage {
+                profile: 1,
+                stage: 2,
+            },
+        ] {
+            let report = request.encode();
+            let required = if matches!(request, ReadRequest::DpiStage { .. }) {
+                10
+            } else {
+                9
+            };
+            for length in 0..=16 {
+                assert_eq!(request.accepts(&report[..length]), length >= required);
+            }
+            let mut wrong_echo = report;
+            wrong_echo[1] ^= 0xff;
+            assert!(!request.accepts(&wrong_echo[..required]));
+            let mut wrong_id = report;
+            wrong_id[0] = 7;
+            assert!(!request.accepts(&wrong_id[..required]));
+            let mut oversized = report.to_vec();
+            oversized.push(0);
+            assert!(!request.accepts(&oversized));
         }
     }
 
