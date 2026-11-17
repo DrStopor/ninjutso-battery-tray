@@ -49,6 +49,9 @@
 
 ### Fixed
 
+- Build Linux package staging trees on a native temporary filesystem so Windows/WSL
+  bind-mount permissions do not invalidate Debian control scripts; scope Docker
+  repository ownership trust to timestamp retrieval and validate the result.
 - Accept verified short wired HID replies without inventing missing value bytes;
   restrict Linux telemetry to the vendor collection instead of probing keyboard,
   mouse and consumer-control interfaces.

@@ -15,7 +15,9 @@ binary=${CARGO_TARGET_DIR:-target}/release/ninjutso-battery-tray
 [[ "$binary" = /* ]] || binary="$root/$binary"
 [[ $("$binary" --version) == "Ninjutso Battery Tray $version" ]]
 desktop-file-validate packaging/linux/io.github.DrStopor.NinjutsoBatteryTray.desktop
-stage=$(mktemp -d "$out/.ninjutso-stage.XXXXXXXX")
+# Windows/WSL bind mounts may report every directory as 0777 regardless of chmod.
+# Keep the Debian control tree on a native filesystem; copy only final artifacts.
+stage=$(mktemp -d "${TMPDIR:-/tmp}/ninjutso-stage.XXXXXXXX")
 trap 'rm -rf -- "$stage"' EXIT
 package="$stage/package"
 install -Dm755 "$binary" "$package/usr/bin/ninjutso-battery-tray"
@@ -35,6 +37,7 @@ for file in UPSTREAM.md SHA256SUMS source-sans-3/OFL.txt noto-sans-sc/OFL.txt no
 done
 bash tools/collect-license-sources.sh "$package/usr/share/doc/ninjutso-battery-tray/licenses/sources"
 mkdir -p "$package/DEBIAN" "$stage/debian"
+chmod 755 "$package/DEBIAN"
 install -m644 packaging/linux/source-control "$stage/debian/control"
 dependencies=$(cd "$stage" && dpkg-shlibdeps -O -e "$package/usr/bin/ninjutso-battery-tray")
 dependencies=${dependencies#shlibs:Depends=}
@@ -42,7 +45,13 @@ dependencies=${dependencies#shlibs:Depends=}
 sed -e "s/@VERSION@/$version/g" -e "s/@ARCH@/$arch/g" -e "s/@DEPENDS@/$dependencies/g" \
     packaging/linux/control.in > "$package/DEBIAN/control"
 install -m755 packaging/linux/postinst packaging/linux/postrm "$package/DEBIAN/"
-export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct)}
+if [[ -z ${SOURCE_DATE_EPOCH:-} ]]; then
+    # Docker may run as a different UID from the bind-mounted repository owner.
+    # Trust only this explicitly selected source root for this one command.
+    SOURCE_DATE_EPOCH=$(git -c safe.directory="$root" log -1 --format=%ct)
+fi
+[[ "$SOURCE_DATE_EPOCH" =~ ^[0-9]+$ ]] || { printf 'Invalid source timestamp\n' >&2; exit 1; }
+export SOURCE_DATE_EPOCH
 deb="ninjutso-battery-tray_${version}_${arch}.deb"
 dpkg-deb --root-owner-group --build "$package" "$stage/$deb"
 # Keep ELF, desktop integration, permissions and license files together in the
